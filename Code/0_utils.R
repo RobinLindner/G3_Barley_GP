@@ -21,14 +21,16 @@
 
 ## set working directory for Mac and PC
 
-setwd("~/Documents/Arbeit/Genetics/MasterThesis/Publication/G3_Lindner/Code/")      # Robins's working directory (mac)
+setwd("~/Documents/Arbeit/Genetics/MasterThesis/Publication/G3_Barley_GP/Code/")      # Robins's working directory (mac)
 
 
 ## ---------------------------
 
 ## load up the packages we will need:  
 library(dplyr)
+library(tidyr)
 library(rMVP)
+library(bigmemory)
 library(car)
 library(ggplot2)
 library(ggpubr)
@@ -88,7 +90,7 @@ LD_out_file = "../Data/Genotype/LD/"
 box_cox_parameter_file = "../Data/Generated/box_cox_parameters.csv"
 HSR_box_cox_parameter_file = "../Data/Generated/HSR_box_cox_parameters.csv"
 ## ---------------------------
-
+source("simpleM.R")
 ## load up functions into memory:
 
 # For a selection of SNP IDs, return the candidate genes on the reference assembly
@@ -316,7 +318,7 @@ sameGroup <- Vectorize(function(Trait1,Trait2){
   return(GroupsT1==GroupsT2)
 })
 
-
+#### ---- Genomic prediction ---- ####
 nFoldCV_lm_combined <- function(all_BLUPs,trait,dat,K,H,CV_mat,genotypes){
   K = as.matrix(K)
   H = as.matrix(H)
@@ -451,7 +453,7 @@ mapFullToRed <- function(full,red){
   return(res_mat)
 }
 
-nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno,K,H,CV_mat,genotypes){
+nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,genotypes){
   K = as.matrix(K)
   H = as.matrix(H)
   gt = sort(genotypes)
@@ -459,9 +461,9 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno,K,H,CV_mat,genotype
     filter(Trait == trait) %>%
     filter(DAT == dat) %>%
     filter(X %in% gt) %>%
-    select(X,BLUP)
+    dplyr::select(X,BLUP)
   # reorder CV matrix & BLUPs (if necessary)
-  CV_mat = CV_mat[match(rownames(gt,rownames(CV_mat))),]
+  CV_mat = CV_mat[match(gt,rownames(CV_mat)),]
   BLUPS_foc_spec=BLUPS_foc_spec[order(BLUPS_foc_spec$X),]
   
   result_frame = data.frame()
@@ -481,6 +483,17 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno,K,H,CV_mat,genotype
       train_idx = which(fold_vec!=j)
       
       X_fe = NULL
+      
+      geno_train = geno_mat[BLUPS_foc_spec$X[train_idx],]
+      K_train = K[BLUPS_foc_spec$X[train_idx],BLUPS_foc_spec$X[train_idx]]
+      Y_train = BLUPS_foc_spec[train_idx,]
+      colnames(Y_train) = c("Taxa",trait)
+      sig_snp = GetSignificantAssociationsForTrainingSet(Y_train = Y_train,
+                                                          geno_train =  geno_train,
+                                                          K_train = K_train)
+      print(paste("Indices of significant SNP:",sig_snp))
+      geno = geno_mat[sig_snp]
+      
       if(ncol(geno)>0){
         X_fe = as.data.frame(geno[BLUPS_foc_spec$X[train_idx],])
         names(X_fe) = names(geno)
@@ -630,5 +643,60 @@ map_SNP_positions <- function(chr_map,chr_SNPs){
   return(result)
 }
 
-## ---------------------------
+#### ---- GWAS ---- ####
+GetSignificantAssociationsForTrainingSet <- function(Y_train,geno_train,K_train){
+ 
+  map = read.table(map_path,header = T)
+  
+  # compute number of PC that have more than 5% variance
+  pca=prcomp(as.matrix(K_train))
+  nPCs = tail(which((pca$sdev / sum(pca$sdev))>=0.05),1)
+  
+  # compute specific sig threshold
+  genoPerChrom = SplitGenoPerChrom(geno_train,map)
+  MeffTotal = SumMeffOverChrom(genoPerChrom)
+  sprintf("Effective ratio: %f",MeffTotal/ncol(geno_train))
+  sig_threshold = 0.05/MeffTotal
+  
+  # compute set-specific significant associations
+  imMVP = MVP(
+    phe=Y_train,
+    geno=as.big.matrix(geno_train),
+    map=map,
+    K=as.matrix(K_train),
+    nPC.FarmCPU=nPCs,
+    vc.method="EMMA",
+    maxLoop=10,
+    method.bin="FaST-LMM",#"FaST-LMM","EMMA", "static"
+    method=c("FarmCPU"),
+    verbose = F,
+    file.output = c()
+  )
+  p_values = imMVP$farmcpu.results[,3]
+  print(paste("Number of significant SNP:",sum(p_values<=sig_threshold)))
+  return(which(p_values<=sig_threshold))
+}
 
+SplitGenoPerChrom <- function(geno_mat,map){
+  genoPerChrom = list()
+  if(ncol(geno_mat)!=nrow(map)){
+    print("Warning: Number of markers in the genotype matrix and in the map file are not equal!")
+    print(ncol(geno_mat))
+    print(nrow(map))
+    return(genoPerChrom)
+  }
+  for(i in unique(map$CHROM)){
+    genoPerChrom[[i]] = geno_mat[,map$CHROM==i]
+  }
+  return(genoPerChrom)
+}
+
+SumMeffOverChrom <- function(genoPerChrom){
+  Meff=c()
+  i=1
+  for(genoMat in genoPerChrom){
+    Meff[i]=computeMeff_mat(t(genoMat))
+    i=i+1
+  }
+  return(sum(Meff))
+}

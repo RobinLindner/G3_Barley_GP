@@ -57,7 +57,7 @@ Meff_PCA <- function(eigenValues, percentCut){
 
 #============================================================================
 # infer the cutoff => Meff
-inferCutoff <- function(dt_My){
+inferCutoff <- function(dt_My,PCA_cutoff){
 	CLD <- cor(dt_My)
 	eigen_My <- eigen(CLD)
 		
@@ -73,8 +73,6 @@ inferCutoff <- function(dt_My){
 # fix length, simpleM
 
 computeMeff <- function(fn_In,PCA_cutoff=0.995){
-  
-
 
 mySNP_nonmissing <- read.table(fn_In, colClasses="integer")		
 
@@ -103,5 +101,37 @@ cat("Total number of SNPs is: ", numLoci, "\n")
 cat("Inferred Meff is: ", sum(simpleMeff), "\n")
 return(sum(simpleMeff))
 }
+
+computeMeff_mat <- function(tabIn,PCA_cutoff=0.995){
+  
+  mySNP_nonmissing <- as.table(tabIn)	
+  
+  numLoci <- length(mySNP_nonmissing[, 1])
+  
+  simpleMeff <- NULL
+  fixLength <- numLoci 
+  i <- 1
+  myStart <- 1
+  myStop <- 1
+  while(myStop < numLoci){
+    myDiff <- numLoci - myStop 
+    if(myDiff <= fixLength) break
+    
+    myStop <- myStart + i*fixLength - 1
+    snpInBlk <- t(mySNP_nonmissing[myStart:myStop, ])
+    MeffBlk <- inferCutoff(snpInBlk)
+    simpleMeff <- c(simpleMeff, MeffBlk)
+    myStart <- myStop+1
+  }
+  snpInBlk <- t(mySNP_nonmissing[myStart:numLoci, ])
+  MeffBlk <- inferCutoff(snpInBlk,PCA_cutoff)
+  simpleMeff <- c(simpleMeff, MeffBlk)
+  
+  cat("Total number of SNPs is: ", numLoci, "\n")
+  cat("Inferred Meff is: ", sum(simpleMeff), "\n")
+  return(sum(simpleMeff))
+}
+
+
 #============================================================================
 # end 

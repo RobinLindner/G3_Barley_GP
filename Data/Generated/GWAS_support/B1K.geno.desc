@@ -1,0 +1,5 @@
+new("big.matrix.descriptor", description = list(sharedType = "FileBacked", 
+    filename = "B1K.geno.bin", dirname = "../Data/Generated/GWAS_support/", 
+    totalRows = 340L, totalCols = 11937L, rowOffset = c(0, 340
+    ), colOffset = c(0, 11937), nrow = 340, ncol = 11937, rowNames = NULL, 
+    colNames = NULL, type = "char", separated = FALSE))

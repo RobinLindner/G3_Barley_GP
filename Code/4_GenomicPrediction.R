@@ -22,7 +22,7 @@
 
 ## set environment
 
-source("0_utils.R")
+source("0_utils.R") 
 
 ## ---------------------------
 
@@ -83,15 +83,18 @@ all_trait_pred_df=data.frame()
 all_trait_MFE_acc_df=data.frame()
 all_trait_MFE_pred_df=data.frame()
 all_trait_MFE_fe_df=data.frame()
+
+dats_HS = c(14,21,28,35,42)
+
 for(i in 1:length(focal_traits)){
   
   trait = focal_traits[i]
-  dats_HS = c(14,21,28,35,42)
   if(i==1){
     dats_foc = dats_HS + 1
   }else{
     dats_foc = dats_HS
   }
+  
   trait_acc_df=data.frame()
   trait_pred_df=data.frame()
   for(j in 1:length(dats_foc)){
