@@ -92,7 +92,7 @@ for(i in 1:length(focal_traits)){
     
     H=as.matrix(HS_mat) %*% t(as.matrix(HS_mat)) / ncol(HS_mat) 
     
-    print(paste0("DAT:",j," Trait:",i))
+    print(paste0("DAT:",dats_HS[j]," Trait:",trait))
     print(paste0("number of sigificant SNPs: ",ncol(X)))
     
     # Returns a list containing 

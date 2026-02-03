@@ -470,7 +470,7 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,geno
   result_frame = data.frame()
   fe_frame = data.frame()
   acc_frame = data.frame(GBLUP_Accuracy=NA,HBLUP_Accuracy=NA,G_HBLUP_Accuracy=NA,GBLUP_Accuracy_na=NA,HBLUP_Accuracy_na=NA,G_HBLUP_Accuracy_na=NA,Run=NA,Fold=NA,n_FE=NA,nr_redM = NA)
-  K = K[BLUPS_foc_spec$X,BLUPS_foc_spec$X]
+  Kinship_mat = Kinship_mat[BLUPS_foc_spec$X,BLUPS_foc_spec$X]
   H = H[BLUPS_foc_spec$X,BLUPS_foc_spec$X]
   
   n_folds = length(unique(CV_mat[,1]))
@@ -486,7 +486,7 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,geno
       X_fe = NULL
       
       geno_train = geno_mat[BLUPS_foc_spec$X[train_idx],]
-      K_train = K[BLUPS_foc_spec$X[train_idx],BLUPS_foc_spec$X[train_idx]]
+      K_train = Kinship_mat[BLUPS_foc_spec$X[train_idx],BLUPS_foc_spec$X[train_idx]]
       Y_train = BLUPS_foc_spec[train_idx,]
       colnames(Y_train) = c("Taxa",trait)
       sig_snp = GetSignificantAssociationsForTrainingSet(Y_train = Y_train,
@@ -523,10 +523,10 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,geno
       train_geno = train_data$X[-test_idx]
       
       formula <- as.formula(paste0("BLUP ~ ", fixed_effect_t," (1|X)"))
-      GBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = K))
+      GBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = Kinship_mat))
       
       pred_GBLUP_train <- predict(GBLUP_model)
-      pred_GBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% GBLUP_model@u
+      pred_GBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% GBLUP_model@u
       pred_GBLUP_full=c()
       pred_GBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GBLUP_train
       pred_GBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GBLUP_test
@@ -547,11 +547,11 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,geno
       
       train_data_ext= cbind(train_data,data.frame(X_H = train_data$X))
       
-      G_HBLUP_model <- relmatLmer(as.formula(paste0("BLUP ~ ", fixed_effect_t, " (1|X)+(1|X_H)")), train_data_ext, relmat=list(X = K,X_H=H))
+      G_HBLUP_model <- relmatLmer(as.formula(paste0("BLUP ~ ", fixed_effect_t, " (1|X)+(1|X_H)")), train_data_ext, relmat=list(X = Kinship_mat,X_H=H))
       
       
       pred_GHBLUP_train <- predict(G_HBLUP_model)
-      pred_GHBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% G_HBLUP_model@u[1:length(train_geno)] + H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+      pred_GHBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% G_HBLUP_model@u[1:length(train_geno)] + H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
       pred_GHBLUP_full=c()
       pred_GHBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_train[1:(length(pred_GHBLUP_train)/2)]
       pred_GHBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_test
