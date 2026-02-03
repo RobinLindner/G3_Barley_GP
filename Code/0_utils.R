@@ -40,7 +40,7 @@ library(bestNormalize)
 library(lme4qtl)
 library(caret)
 library(Matrix)
-library(topGO)
+#library(topGO)
 ## ---------------------------
 
 ## load file paths into memory:
