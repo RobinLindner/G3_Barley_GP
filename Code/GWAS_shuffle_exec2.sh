@@ -8,7 +8,7 @@
 #SBATCH --mem=12G
 #SBATCH --mail-user=lindner5@uni-potsdam.de
 #SBATCH --mail-type=FAIL
-#SBATCH --array=0-1499%20          # 1500 jobs total, 20 at a time
+
 
 # 1. Define your arrays
 traits=("RGB1_Plant_Avg_HEIGHT_MM" "VNIR_Plant_NDVI.avg" "SC_Plant_Weight")
