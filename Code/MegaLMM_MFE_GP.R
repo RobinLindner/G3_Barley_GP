@@ -145,6 +145,7 @@ BLUPS_foc_spec <- all_BLUPs %>%
   filter(Trait==trait) %>%
   filter(X %in% genotypes) %>%
   select(X,BLUP)
+BLUPS_foc_spec=BLUPS_foc_spec[order(BLUPS_foc_spec$X),]
 
 BLUPS_HS_spec <- all_BLUPs_HS %>%
   filter(DAT==dat) %>%
@@ -158,14 +159,6 @@ HS_mat = HS_mat[,-which(apply(HS_mat,2,var)==0)]
 
 HS_mat_n_col = ncol(HS_mat)
 
-sig_snp <- assoc_cut %>%
-  filter(Trait==trait,DAT==foc_dat) %>%
-  select(SNP)
-
-X <- as.data.frame(geno_num[,sig_snp$SNP])
-names(X)=sig_snp$SNP
-
-
 
 
 
@@ -173,21 +166,7 @@ Y = cbind(BLUPS_foc_spec$BLUP[match(BLUPS_foc_spec$X,genotypes)],HS_mat[genotype
 names(Y)[1]=trait
 
 
-X_fe = NULL
-if(ncol(X)>0){
-  X_fe = as.data.frame(X[BLUPS_foc_spec$X,])
-  names(X_fe) = names(X)
-  if(ncol(X)>1){
-    red = reduceFE_matrix(X_fe)
-    X_fe = red$mat
-  }
-  fixed_effect_t = paste(paste(colnames(X_fe), collapse = " + "),"+")
-  data = cbind(data.frame(Genotype=rownames(Y)),X_fe)
-  names(data)=c("Genotype",colnames(X_fe))
-}else{
-  fixed_effect_t =""
-  data=data.frame(Genotype=rownames(Y))
-}
+
 
 
 # Set up 5 fold CV 
@@ -199,8 +178,35 @@ for(fold in 1:k_fold){
   
   test_ids = CV_mat[,run]==fold_ID
   Y_train = Y_testing = Y
-  Y_train[test_ids,1] = NA
-  Y_testing[!test_ids,1] = NA
+  Y_train[test_ids,] = NA
+  Y_testing[!test_ids,] = NA
+  
+  geno_train = geno_num[BLUPS_foc_spec$X[!test_ids],]
+  K_train = K_cut[BLUPS_foc_spec$X[!test_ids],BLUPS_foc_spec$X[!test_ids]]
+  y_train = BLUPS_foc_spec[!test_ids,]
+  colnames(y_train) = c("Taxa",trait)
+  sig_snp = GetSignificantAssociationsForTrainingSet(Y_train = y_train,
+                                                     geno_train =  geno_train,
+                                                     K_train = K_train)
+  sig_idx = GetSignificantAssociationsForTrainingSet(Y_train,geno_train,K_train)
+  
+  X = geno_num[sig_idx]
+  
+  X_fe = NULL
+  if(ncol(X)>0){
+    X_fe = as.data.frame(X[BLUPS_foc_spec$X,])
+    names(X_fe) = names(X)
+    if(ncol(X)>1){
+      red = reduceFE_matrix(X_fe)
+      X_fe = red$mat
+    }
+    fixed_effect_t = paste(paste(colnames(X_fe), collapse = " + "),"+")
+    data = cbind(data.frame(Genotype=rownames(Y)),X_fe)
+    names(data)=c("Genotype",colnames(X_fe))
+  }else{
+    fixed_effect_t =""
+    data=data.frame(Genotype=rownames(Y))
+  }
   
   
   

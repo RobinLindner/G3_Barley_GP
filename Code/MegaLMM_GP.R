@@ -1,11 +1,9 @@
 # MegaLMM HPC parallel script
 # each run for each trait at each time point can be run in parallel to improve
 # computational efficiency.
-
+source("0_utils.R")
 library(MegaLMM)
 library(tibble)
-library(tidyr)
-library(dplyr)
 
 args = commandArgs(trailingOnly = T)
 
@@ -135,8 +133,8 @@ for(fold in 1:k_fold){
   
   test_ids = CV_mat[,run]==fold_ID
   Y_train = Y_testing = Y
-  Y_train[test_ids,1] = NA
-  Y_testing[!test_ids,1] = NA
+  Y_train[test_ids,] = NA
+  Y_testing[!test_ids,] = NA
   
   ## MegaLMM
   run_parameters = MegaLMM_control(

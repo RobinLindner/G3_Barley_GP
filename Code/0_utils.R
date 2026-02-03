@@ -436,7 +436,9 @@ reduceFE_matrix<- function(X){
   }
   if(length(lc$remove)>0){
     all_FE = all_FE[-lc$remove]
+    print(all_FE)
     X = X[,-lc$remove]
+    print(X)
     colnames(X)=all_FE
   }
   return(list(mat=X,n_red = length(lc$remove)))
