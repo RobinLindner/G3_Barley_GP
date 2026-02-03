@@ -21,7 +21,7 @@
 
 ## set working directory for Mac and PC
 
-setwd("~/Documents/Arbeit/Genetics/MasterThesis/Publication/G3_Barley_GP/Code/")      # Robins's working directory (mac)
+setwd(".")      # Robins's working directory (mac)
 
 
 ## ---------------------------
