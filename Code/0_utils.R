@@ -327,10 +327,10 @@ nFoldCV_lm_combined <- function(all_BLUPs,trait,dat,K,H,CV_mat,genotypes){
     filter(Trait == trait) %>%
     filter(DAT == dat) %>%
     filter(X %in% gt) %>%
-    select(X,BLUP)
+    dplyr::select(X,BLUP)
   
   # reorder CV matrix & BLUPs (if necessary)
-  CV_mat = CV_mat[match(rownames(gt,rownames(CV_mat))),]
+  CV_mat = CV_mat[match(gt,rownames(CV_mat)),]
   BLUPS_foc_spec=BLUPS_foc_spec[order(BLUPS_foc_spec$X),]
   
   result_frame = data.frame()
@@ -367,7 +367,7 @@ nFoldCV_lm_combined <- function(all_BLUPs,trait,dat,K,H,CV_mat,genotypes){
       
       HBLUP_model <- relmatLmer(BLUP~ (1|X), train_data, relmat=list(X = H))
       
-      pred_HBLUP_train <- predict(GBLUP_model)
+      pred_HBLUP_train <- predict(HBLUP_model)
       pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u
       pred_HBLUP_full=c()
       pred_HBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_HBLUP_train
@@ -653,7 +653,7 @@ GetSignificantAssociationsForTrainingSet <- function(Y_train,geno_train,K_train)
   nPCs = tail(which((pca$sdev / sum(pca$sdev))>=0.05),1)
   
   # compute specific sig threshold
-  genoPerChrom = SplitGenoPerChrom(geno_train,map)
+  genoPerChrom = SplitGenoPerChrom(as.matrix(geno_train),map)
   MeffTotal = SumMeffOverChrom(genoPerChrom)
   sprintf("Effective ratio: %f",MeffTotal/ncol(geno_train))
   sig_threshold = 0.05/MeffTotal

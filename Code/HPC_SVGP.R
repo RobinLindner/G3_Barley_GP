@@ -3,7 +3,9 @@ source("0_utils.R")
 ## ---------------------------
 
 ## ---- create a directory for GP results ---- 
-dir.create("../GP_Results")
+if(!dir.exists("../GP_Results")){
+  dir.create("../GP_Results")
+}
 outpath = "../GP_Results"
 
 ## ---- load GP input data ----
