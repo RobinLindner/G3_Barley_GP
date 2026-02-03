@@ -34,8 +34,8 @@ fi
 
 # 4. Execution
 # Note: Source your conda/mamba profile if 'mamba activate' isn't in your .bashrc
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate G3_pub
+#source $(conda info --base)/etc/profile.d/conda.sh
+#conda activate G3_pub
 
 cd /work/lindner5/master/G3_Barley_GP
 
