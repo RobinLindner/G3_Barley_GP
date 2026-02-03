@@ -704,3 +704,12 @@ SumMeffOverChrom <- function(genoPerChrom){
   }
   return(sum(Meff))
 }
+
+CreateNewCV_mat <- function(filepath,nfold=10,nrun=100){
+  gt = read.csv(geno4GP_file)$X
+  CV_mat = replicate(nrun,partition(1:length(gt),nfold))
+  rownames(CV_mat) = gt
+  colnames(CV_mat) = paste0("run_",c(1:nrun))
+  
+  write.csv(CV_mat,filepath)
+}
