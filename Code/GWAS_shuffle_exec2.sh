@@ -40,4 +40,4 @@ fi
 cd /work/lindner5/master/G3_Barley_GP
 
 echo "Processing Trait: $trait | Dat: $dat | Run: $run_num"
-Rscript Code/GWAS_Shuffle.R Supplements/GP_CV_mat2.csv Data/Generated/GenomicPrediction/GWAS_Shuffle ${trait} ${dat} ${run_num}
+Rscript Code/GWAS_Shuffle.R Supplements/GP_CV_mat2.csv ${output_file} ${trait} ${dat} ${run_num}

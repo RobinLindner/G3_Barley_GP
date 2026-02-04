@@ -114,9 +114,6 @@ CV_mat = read_csv_retry(CV_mat_file,rn = T)
 full_df = data.frame()
 nf=T
 
-
-
-
 fold_vec=CV_mat[,run]
 nfolds = max(fold_vec)
 for(j in 1:nfolds){
@@ -146,6 +143,8 @@ for(j in 1:nfolds){
     full_df = rbind(full_df,cur_df)
   }
 }
+
+write.csv(full_df,out_path)
 
 
     
