@@ -17,8 +17,11 @@ num_runs=100
 
 # 2. Map the Task ID to your variables using math
 # This replaces your nested loops
-trait_idx=$(( SLURM_ARRAY_TASK_ID / (5 * num_runs) ))
-remainder=$(( SLURM_ARRAY_TASK_ID % (5 * num_runs) ))
+
+ACTUAL_ID=$(( SLURM_ARRAY_TASK_ID + ${OFFSET:-0} ))
+
+trait_idx=$(( ACTUAL_ID / (5 * num_runs) ))
+remainder=$(( ACTUAL_ID % (5 * num_runs) ))
 dat_idx=$(( remainder / num_runs ))
 run_num=$(( (remainder % num_runs) + 1 ))
 
