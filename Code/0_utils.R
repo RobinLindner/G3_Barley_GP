@@ -83,7 +83,8 @@ phenotype_HSR_long_file = "../Supplements/HSR_Merged_file_Tier1_long.csv"
 geno_remap_file = "../Data/Genotype/B1K_SNP_remap.csv"
 
 GP_CV_matrix_file = "../Supplements/GP_CV_matrix.csv"
-
+GP_test_set_file = "../Supplements/GP_testSets.csv"
+GP_valid_scenarios_file = "../Supplements/GP_valid_modelScenarios.csv"
 ## Write-only paths:
 figure_dir = "../Figures/"
 LD_out_file = "../Data/Genotype/LD/"
@@ -319,6 +320,212 @@ sameGroup <- Vectorize(function(Trait1,Trait2){
 })
 
 #### ---- Genomic prediction ---- ####
+
+UV_lm <- function(BLUPS_foc_spec,test_idx,H){
+  
+  K = as.matrix(read.csv(GRM_path,row.names = 1))
+  
+  train_data=BLUPS_foc_spec
+  train_data$BLUP[test_idx]= NA
+  
+  test_y = BLUPS_foc_spec$BLUP[test_idx]
+  
+  test_geno = train_data$X[test_idx]
+  train_geno = train_data$X[-test_idx]
+  
+  formula <- as.formula(BLUP~ (1|X))
+  GBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = K))
+  
+  pred_GBLUP_train <- predict(GBLUP_model)
+  pred_GBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% GBLUP_model@u
+  pred_GBLUP_full=c()
+  pred_GBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GBLUP_train
+  pred_GBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GBLUP_test
+  GBLUP_acc=cor(pred_GBLUP_test,test_y)
+  
+  print("GBLUP done")
+  formula <- as.formula(BLUP~ (1|X))
+  HBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = H))
+  
+  pred_HBLUP_train <- predict(HBLUP_model)
+  pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u
+  pred_HBLUP_full=c()
+  pred_HBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_HBLUP_train
+  pred_HBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_HBLUP_test
+  HBLUP_acc=cor(pred_HBLUP_test,test_y)
+  
+  print("HBLUP done")
+  
+  train_data_ext= cbind(train_data,data.frame(X_H = train_data$X))
+  formula <- as.formula(BLUP~ (1|X)+(1|X_H))
+  G_HBLUP_model <- relmatLmer(formula, train_data_ext, relmat=list(X = K,X_H=H))
+  pred_GHBLUP_train <- predict(G_HBLUP_model)
+  pred_GHBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% G_HBLUP_model@u[1:length(train_geno)] + H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+  pred_GHBLUP_full=c()
+  pred_GHBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_train[1:(length(pred_GHBLUP_train)/2)]
+  pred_GHBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_test
+  GHBLUP_acc=cor(pred_GHBLUP_test,test_y)
+  
+  print("GHBLUP done")
+  
+  acc=c(GBLUP_acc,HBLUP_acc,GHBLUP_acc)
+  
+  class = rep("Train",nrow(BLUPS_foc_spec))
+  class[test_idx]="Test"
+  cur_frame = data.frame(Geno = BLUPS_foc_spec$X,
+                         BLUPs = BLUPS_foc_spec$BLUP,
+                         GBLUP_Pred = pred_GBLUP_full,
+                         HBLUP_Pred = pred_HBLUP_full,
+                         GHBLUP_Pred = pred_GHBLUP_full,
+                         Class = class)
+  
+  return(list(Accuracy=acc,Predictions=cur_frame))
+}
+
+UV_lm_MFE <- function(BLUPS_foc_spec,test_idx,snp_idxs,H,geno_mat){
+  
+  
+  K = read.csv(GRM_path,row.names = 1)
+  
+  train_idx = setdiff(seq(1,215,1),test_idx)
+  
+  X_fe = NULL
+  
+  print(paste("Indices of significant SNP:",snp_idxs))
+  geno = geno_mat[snp_idxs]
+  
+  gt = BLUPS_foc_spec$X
+  
+  # the Kinship matrix is created without the significant SNP to avoid redundancy
+  Kinship_mat = MVP.K.VanRaden(as.big.matrix(as.matrix(geno_mat[gt,-snp_idxs])))
+  rownames(Kinship_mat) = gt
+  colnames(Kinship_mat) = gt
+  
+  # If the genotype of the significant SNPs has more than one position 
+  # (should always be the case)
+  if(ncol(geno)>0){
+    X_fe = as.data.frame(geno[BLUPS_foc_spec$X[train_idx],])
+    names(X_fe) = names(geno)
+    if(ncol(geno)>1){
+      red = reduceFE_matrix(X_fe) # If there is more than one SNP check for linear redundancy
+      X_fe = red$mat
+    }
+    #fixed effect term is created as string
+    fixed_effect_t = paste(paste(colnames(X_fe), collapse = " + "),"+")
+    # the corresponding matrix is instantiated with NAs
+    X_t = matrix(NA,nrow(BLUPS_foc_spec),ncol = ncol(X_fe))
+    # The fixed effects for training genotypes are set 
+    X_t[train_idx,]=as.matrix(X_fe)
+    colnames(X_t) = names(X_fe)
+    print(dim(X_t))
+    print(dim(BLUPS_foc_spec))
+    # training data is extended with the fixed effect columns for marker FE
+    train_data=cbind(BLUPS_foc_spec,X_t)
+  }
+  else{
+    fixed_effect_t =""
+    train_data=BLUPS_foc_spec
+  }
+  
+  # mask test genotypes in training dataset
+  train_data$BLUP[test_idx]= NA
+  
+  # record test blup values for validation
+  test_y = BLUPS_foc_spec$BLUP[test_idx]
+  
+  # get test and training genotypes
+  test_geno = train_data$X[test_idx]
+  train_geno = train_data$X[-test_idx]
+  
+  formula <- as.formula(paste0("BLUP ~ ", fixed_effect_t," (1|X)"))
+  GBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = Kinship_mat))
+  
+  pred_GBLUP_train <- predict(GBLUP_model)
+  pred_GBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% GBLUP_model@u
+  pred_GBLUP_full=c()
+  pred_GBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GBLUP_train
+  pred_GBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GBLUP_test
+  GBLUP_acc=cor(pred_GBLUP_test,test_y)
+  
+  print("GBLUP done")
+  
+  HBLUP_model <- relmatLmer(as.formula(paste0("BLUP ~ ", fixed_effect_t ," (1|X)")), train_data, relmat=list(X = H))
+  
+  pred_HBLUP_train <- predict(GBLUP_model)
+  pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u
+  pred_HBLUP_full=c()
+  pred_HBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_HBLUP_train
+  pred_HBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_HBLUP_test
+  HBLUP_acc=cor(pred_HBLUP_test,test_y)
+  
+  print("HBLUP done")
+  
+  train_data_ext= cbind(train_data,data.frame(X_H = train_data$X))
+  
+  G_HBLUP_model <- relmatLmer(as.formula(paste0("BLUP ~ ", fixed_effect_t, " (1|X)+(1|X_H)")), train_data_ext, relmat=list(X = Kinship_mat,X_H=H))
+  
+  
+  pred_GHBLUP_train <- predict(G_HBLUP_model)
+  pred_GHBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% G_HBLUP_model@u[1:length(train_geno)] + H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+  pred_GHBLUP_full=c()
+  pred_GHBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_train[1:(length(pred_GHBLUP_train)/2)]
+  pred_GHBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_test
+  GHBLUP_acc=cor(pred_GHBLUP_test,test_y)
+  
+  print("GHBLUP done")
+  GBLUP_acc_adj=GBLUP_acc
+  HBLUP_acc_adj=HBLUP_acc
+  GHBLUP_acc_adj=GHBLUP_acc
+  if(!is.null(X_fe)){
+    # if there are added fixed effects, adjust the prediction accuracy accordingly, 
+    # by multiplying the marker state by its fixed effect value.
+    test_X = as.data.frame(geno[BLUPS_foc_spec$X[test_idx],])
+    
+    if(ncol(test_X) != ncol(X_fe)){
+      test_X = mapFullToRed(test_X,X_fe)
+    }
+    test_X = as.matrix(cbind(matrix(1,nrow(test_X),1),test_X))
+    GBLUP_acc_adj=cor(pred_GBLUP_test + test_X %*% GBLUP_model@beta ,test_y)
+    HBLUP_acc_adj=cor(pred_HBLUP_test + test_X %*% HBLUP_model@beta,test_y)
+    GHBLUP_acc_adj=cor(pred_GHBLUP_test + test_X %*% G_HBLUP_model@beta,test_y)
+  }
+  
+  if(!is.null(X_fe)){
+    if(ncol(X_fe)>1){
+      acc=c(GBLUP_acc_adj,HBLUP_acc_adj,GHBLUP_acc_adj,GBLUP_acc,HBLUP_acc,GHBLUP_acc,ncol(geno),red$n_red)
+    }else{
+      acc=c(GBLUP_acc_adj,HBLUP_acc_adj,GHBLUP_acc_adj,GBLUP_acc,HBLUP_acc,GHBLUP_acc,ncol(geno),0)
+    }
+  }else{
+    acc=c(GBLUP_acc_adj,HBLUP_acc_adj,GHBLUP_acc_adj,GBLUP_acc,HBLUP_acc,GHBLUP_acc,ncol(geno),0)
+  }
+  
+  class = rep("Train",nrow(BLUPS_foc_spec))
+  class[test_idx]="Test"
+  cur_frame = data.frame(Geno = BLUPS_foc_spec$X,
+                         BLUPs = BLUPS_foc_spec$BLUP,
+                         GBLUP_Pred = pred_GBLUP_full,
+                         HBLUP_Pred = pred_HBLUP_full,
+                         GHBLUP_Pred = pred_GHBLUP_full,
+                         Class = class)
+  
+  if(!is.null(X_fe)){
+    fe_frame_t = data.frame(FE=c("Intercept",colnames(X_fe)),
+                            GBLUP_fe = GBLUP_model@beta,
+                            HBLUP_fe = HBLUP_model@beta,
+                            GHBLUP_fe = G_HBLUP_model@beta)
+  }
+  else{
+    fe_frame_t = data.frame()
+  }
+  return(list(Accuracy=acc,Predictions=cur_frame,FE_sizes=fe_frame_t))
+}
+
+
+
+
+
+
 nFoldCV_lm_combined <- function(all_BLUPs,trait,dat,K,H,CV_mat,genotypes){
   Kinship_mat = as.matrix(K)
   H = as.matrix(H)
@@ -457,6 +664,7 @@ mapFullToRed <- function(full,red){
 }
 
 nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,genotypes){
+  
   Kinship_mat = as.matrix(K)
   H = as.matrix(H)
   gt = sort(genotypes)
@@ -488,14 +696,24 @@ nFoldCV_lm_combined_MFE <- function(all_BLUPs,trait,dat,geno_mat,K,H,CV_mat,geno
       X_fe = NULL
       
       geno_train = geno_mat[BLUPS_foc_spec$X[train_idx],]
-      K_train = Kinship_mat[BLUPS_foc_spec$X[train_idx],BLUPS_foc_spec$X[train_idx]]
+      K_train = MVP.K.VanRaden(as.big.matrix(as.matrix(geno_train)))
+      #K_train = Kinship_mat[BLUPS_foc_spec$X[train_idx],BLUPS_foc_spec$X[train_idx]]
+      rownames(K_train) = BLUPS_foc_spec$X[train_idx]
+      colnames(K_train) = BLUPS_foc_spec$X[train_idx]
+      
       Y_train = BLUPS_foc_spec[train_idx,]
       colnames(Y_train) = c("Taxa",trait)
+      
       sig_snp = GetSignificantAssociationsForTrainingSet(Y_train = Y_train,
                                                           geno_train =  geno_train,
                                                           K_train = K_train)
       print(paste("Indices of significant SNP:",sig_snp))
       geno = geno_mat[sig_snp]
+      
+      
+      Kinship_mat = MVP.K.VanRaden(as.big.matrix(as.matrix(geno_mat[gt,-sig_snp])))
+      rownames(K_train) = gt
+      colnames(K_train) = gt
       
       if(ncol(geno)>0){
         X_fe = as.data.frame(geno[BLUPS_foc_spec$X[train_idx],])
