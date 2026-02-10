@@ -11,11 +11,11 @@ outpath = args[1]
 
 trait = args[2]
 
-dat = args[3]
+dat = as.numeric(args[3])
 
 CV_mat = args[4] # contains all 100 splits
 
-scenarioID = args[5] # The ID of the scenario
+scenarioID = as.numeric(args[5]) # The ID of the scenario
 
 
 
