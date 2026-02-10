@@ -14,8 +14,8 @@
 ## ---------------------------
 ##
 ## Notes: Run on the cluster via 
-##   sbatch --array=0-749%20 Code/GWAS_shuffle.sh
-##   sbatch --array=750-1499%20 Code/GWAS_shuffle.sh
+##   sbatch --array=0-749%20 --export=ALL,OFFSET=0 Code/GWAS_shuffle.sh
+##   sbatch --array=0-749%20 --export=ALL,OFFSET=750 Code/GWAS_shuffle.sh
 ## ---------------------------
 
 ## set working directory for Mac
