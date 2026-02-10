@@ -931,3 +931,11 @@ CreateNewCV_mat <- function(filepath,nfold=10,nrun=100){
   
   write.csv(CV_mat,filepath)
 }
+
+GetTestSetsForScenario <- function(scenarioID){
+  temp = read.csv(GP_test_set_file,row.names = 1)
+  split = t(data.frame(strsplit(temp[,paste0("X",scenarioID)],"_")))
+  rownames(split) = NULL
+  colnames(split) = c("Run","Fold")
+  return(split)
+}
