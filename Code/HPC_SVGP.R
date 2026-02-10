@@ -1,4 +1,5 @@
-source("Code/0_utils.R")
+setwd("Code")
+source("0_utils.R")
 
 ## ---------------------------
 
