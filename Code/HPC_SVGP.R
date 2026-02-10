@@ -13,7 +13,7 @@ trait = args[2]
 
 dat = as.numeric(args[3])
 
-CV_mat = args[4] # contains all 100 splits
+CV_mat_file = paste0("../",args[4]) # contains all 100 splits
 
 scenarioID = as.numeric(args[5]) # The ID of the scenario
 
@@ -36,6 +36,8 @@ marker_geno= t(marker_geno)
 
 
 # Get the marker indices for the scenario
+CV_mat = read.csv(CV_mat_file,row.names = 1)
+
 validScenarios = read.csv(GP_valid_scenarios_file)
 snp_idxs = as.numeric(unlist(strsplit(validScenarios$SNP_idxs[scenarioID],", ")))
 
@@ -43,7 +45,7 @@ snp_idxs = as.numeric(unlist(strsplit(validScenarios$SNP_idxs[scenarioID],", "))
 test_sets = GetTestSetsForScenario(scenarioID)
 
 if(trait == "RGB1_Plant_Avg_HEIGHT_MM") {
-  dat_foc = dat-1
+  dat_foc = dat+1
 }else{
   dat_foc = dat
 }
@@ -63,7 +65,7 @@ BLUPs_normalized=BLUPs_normalized[match(rownames(CV_mat),BLUPs_normalized$X),]
 HSR_BLUPs_normalized = read.csv(HSR_BLUP_normalized_path)%>%
   filter(Genotype %in% genotypes)
 
-HSR_BLUPs_normalized=HSR_BLUPs_normalized[match(rownames(CV_mat),HSR_BLUPs_normalized$X),]
+
 
 map <- read.table(map_path,header = T)
 
@@ -72,9 +74,7 @@ map <- read.table(map_path,header = T)
 
 
 for(i in 1:50){
-  if(trait == "RGB1_Plant_Avg_HEIGHT_MM") {
-    dat = dat-1
-  }
+  print(i)
   run = test_sets[i,1]
   fold= test_sets[i,2]
   
@@ -84,25 +84,30 @@ for(i in 1:50){
   dat_HS_blups <- HSR_BLUPs_normalized %>%
     filter(DAT==dat)
   colnames(dat_HS_blups)[1] = "X"
-  
+  print(colnames(dat_HS_blups))
+  print(nrow(dat_HS_blups))
   HS_mat = pivot_wider(dat_HS_blups,id_cols = c(X),names_from = Trait,values_from = Value)%>%
     dplyr::select(where(~any(. !=1,na.rm=T))) %>%
     tibble::column_to_rownames(var="X")
+  
   
   # prevent singularity
   rem=findLinearCombos(as.matrix(HS_mat))$remove
   HS_mat=HS_mat[-rem]
   
+  HS_mat = HS_mat[rownames(CV_mat),]
+  
+  
   H=as.matrix(HS_mat) %*% t(as.matrix(HS_mat)) / ncol(HS_mat) 
   
-  print(paste0("DAT:",dats_HS[j]," Trait:",trait))
-  print(paste0("number of sigificant SNPs: ",ncol(X)))
+  print(paste0("DAT:",dat," Trait:",trait))
+  #print(paste0("number of sigificant SNPs: ",ncol(X)))
   
 
   
-  
-  fold_vec = CV_mat[,run]
-  test_idx = which(fold_vec==fold)
+
+  fold_vec = CV_mat[,as.numeric(run)]
+  test_idx = which(fold_vec==as.numeric(fold))
 
   
   # Returns a list containing 
@@ -115,7 +120,7 @@ for(i in 1:50){
   # $Predictions: | Genotype | BLUPs | GBLUP Prediction | HBLUP Prediction | G+HBLUP Prediction | Test/Train
   # $FE_sizes:    | Fixed effect ID | GBLUP effect size | HBLUP effect size | G+HBLUP effect size 
   # NonAdj: prediction accuracy without considering marker effects cor(u,y) <=> cor(y',y)
-  res_MFE = UV_lm_MFE(BLUPS_foc_spec,test_idx,snp_idxs,H,X)
+  res_MFE = UV_lm_MFE(BLUPs_normalized,test_idx,snp_idxs,H,X)
   
   cur_acc = data.frame(GBLUP = res$Accuracy[1],
                        HBLUP = res$Accuracy[2],
