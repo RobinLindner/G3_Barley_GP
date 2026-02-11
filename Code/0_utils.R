@@ -40,9 +40,11 @@ library(bestNormalize)
 library(lme4qtl)
 library(caret)
 library(Matrix)
+library(MegaLMM)
+library(tibble)
+
 #library(topGO)
 ## ---------------------------
-
 ## load file paths into memory:
 
 ## !Need to be adjusted: 
@@ -82,7 +84,7 @@ phenotype_HSR_long_file = "../Supplements/HSR_Merged_file_Tier1_long.csv"
 
 geno_remap_file = "../Data/Genotype/B1K_SNP_remap.csv"
 
-GP_CV_matrix_file = "../Supplements/GP_CV_matrix.csv"
+GP_CV_matrix_file = "../Supplements/GP_CV_mat2.csv"
 GP_test_set_file = "../Supplements/GP_testSets.csv"
 GP_valid_scenarios_file = "../Supplements/GP_valid_modelScenarios.csv"
 ## Write-only paths:
@@ -938,4 +940,37 @@ GetTestSetsForScenario <- function(scenarioID){
   rownames(split) = NULL
   colnames(split) = c("Run","Fold")
   return(split)
+}
+
+
+read_csv_retry <- function(file,rn=F, max_retries = 3, delay = 5) {
+  attempts <- 0
+  while (attempts < max_retries) {
+    attempts <- attempts + 1
+    tryCatch({
+      if(rn){
+        data <- read.csv(file,row.names = 1)
+      }else{
+        data <- read.csv(file)
+      }
+      return(data)
+    }, error = function(e) {
+      if (attempts == max_retries) stop("Max retries reached. Unable to read file.")
+      Sys.sleep(delay) # Wait before retrying
+    })
+  }
+}
+
+read_table_retry <- function(file, max_retries = 3, delay = 5) {
+  attempts <- 0
+  while (attempts < max_retries) {
+    attempts <- attempts + 1
+    tryCatch({
+      data <- read.table(file)
+      return(data)
+    }, error = function(e) {
+      if (attempts == max_retries) stop("Max retries reached. Unable to read file.")
+      Sys.sleep(delay) # Wait before retrying
+    })
+  }
 }
