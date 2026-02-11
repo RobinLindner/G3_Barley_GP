@@ -7,7 +7,7 @@ source("0_utils.R")
 
 args = commandArgs(trailingOnly = T)
 
-out_path = args[1]
+out_path = paste0("../",args[1])
 
 trait = args[2]
 
@@ -79,7 +79,7 @@ for(i in 1:50){
   fold= test_sets[i,2]
   
   X <- as.data.frame(marker_geno)
-  names(X)=map$SNP
+  colnames(X)=map$SNP
   
   dat_HS_blups <- HSR_BLUPs_normalized %>%
     filter(DAT==dat)
