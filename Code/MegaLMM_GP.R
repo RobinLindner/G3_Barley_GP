@@ -1,74 +1,23 @@
 # MegaLMM HPC parallel script
 # each run for each trait at each time point can be run in parallel to improve
 # computational efficiency.
+setwd("Code")
 source("0_utils.R")
-library(MegaLMM)
-library(tibble)
 
 args = commandArgs(trailingOnly = T)
 
-# all_BLUPs_file
-all_BLUPs_f = args[1]
-
-# all_BLUPs_HS_file
-all_BLUPs_HS_f = args[2]
-
-# Kinship file
-Kin_f = args[3]
-
-# genotypes
-geno_f = args[4]
-
-# CV matrix
-CV_mat_file = args[5]
-
 # output folder
-out_path = args[6]
+out_path = paste0("../",args[1])
 
 # trait
-trait = args[7]
+trait = args[2]
 
 # DAT
-dat = as.numeric(args[8])
+dat = as.numeric(args[3])
 
-# runID
-run = as.numeric(args[9])
+# The ID of the scenario
+scenarioID = as.numeric(args[4]) 
 
-
-
-
-## parallel access to files is staggered to prevent reading errors 
-read_csv_retry <- function(file,rn=F, max_retries = 3, delay = 5) {
-  attempts <- 0
-  while (attempts < max_retries) {
-    attempts <- attempts + 1
-    tryCatch({
-      if(rn){
-        data <- read.csv(file,row.names = 1)
-      }else{
-        data <- read.csv(file)
-      }
-      return(data)
-    }, error = function(e) {
-      if (attempts == max_retries) stop("Max retries reached. Unable to read file.")
-      Sys.sleep(delay) # Wait before retrying
-    })
-  }
-}
-
-read_table_retry <- function(file, max_retries = 3, delay = 5) {
-  attempts <- 0
-  while (attempts < max_retries) {
-    attempts <- attempts + 1
-    tryCatch({
-      data <- read.table(file)
-      return(data)
-    }, error = function(e) {
-      if (attempts == max_retries) stop("Max retries reached. Unable to read file.")
-      Sys.sleep(delay) # Wait before retrying
-    })
-  }
-}
 
 if(!dir.exists(out_path)){
   dir.create(out_path)
@@ -79,14 +28,17 @@ if(!dir.exists(file.path(out_path,"Accuracy"))){
   dir.create(file.path(out_path,"Predictions"))
 }
 
-all_BLUPs = read_csv_retry(all_BLUPs_f, rn = T)
-all_BLUPs_HS = read_csv_retry(all_BLUPs_HS_f, rn = T)
-K = read_csv_retry(Kin_f, rn = T)
-CV_mat = read_csv_retry(CV_mat_file,rn=T)
+
+
+all_BLUPs = read_csv_retry(BLUP_normalized_path, rn = F)
+all_BLUPs_HS = read_csv_retry(HSR_BLUP_normalized_path, rn = F)
+K = read_csv_retry(GRM_path, rn = T)
+CV_mat = read_csv_retry(GP_CV_matrix_file,rn=T)
 
 names(all_BLUPs)[c(1,4)]=c("X","BLUP")
+names(all_BLUPs_HS)[c(1,4)]=c("X","BLUP")
 
-genotypes = sort(read_table_retry(geno_f)$X)
+genotypes = sort(read_table_retry(geno4GP_file)$X)
 
 K_cut = K[genotypes,genotypes]
 
@@ -104,17 +56,21 @@ BLUPS_foc_spec <- all_BLUPs %>%
   filter(DAT==foc_dat) %>%
   filter(Trait==trait) %>%
   filter(X %in% genotypes) %>%
-  select(X,BLUP)
+  dplyr::select(X,BLUP)
+
+BLUPS_foc_spec = BLUPS_foc_spec[match(genotypes,BLUPS_foc_spec$X),]
 
 BLUPS_HS_spec <- all_BLUPs_HS %>%
   filter(DAT==dat) %>%
   filter(X %in% genotypes)
 
-HS_mat = pivot_wider(BLUPS_HS_spec,id_cols = c(X),names_from = Trait,values_from = BLUP) %>%
-  select(where(~any(. !=1))) %>%
-  column_to_rownames(var="X")
+HS_mat = pivot_wider(BLUPS_HS_spec,id_cols = c(X),names_from = Trait,values_from = BLUP)%>%
+  dplyr::select(where(~any(. !=1,na.rm=T))) %>%
+  tibble::column_to_rownames(var="X")
 
-HS_mat = HS_mat[,-which(apply(HS_mat,2,var)==0)]
+
+
+HS_mat = HS_mat[,!apply(HS_mat,2,var)==0]
 
 HS_mat_n_col = ncol(HS_mat)
 
@@ -123,15 +79,19 @@ Y = cbind(BLUPS_foc_spec$BLUP[match(BLUPS_foc_spec$X,genotypes)],HS_mat[genotype
 names(Y)[1]=trait
 
 
-# Set up 5 fold CV 
+validScenarios = read.csv(GP_valid_scenarios_file)
+snp_idxs = as.numeric(unlist(strsplit(validScenarios$SNP_idxs[scenarioID],", ")))
+# Read the 50 test sets from the supporting list
+test_sets = GetTestSetsForScenario(scenarioID)
+CV_mat = CV_mat[match(genotypes,rownames(CV_mat)),]
 
-k_fold = length(unique(CV_mat[,1]))
-
-
-for(fold in 1:k_fold){
-  fold_ID = fold
+nf=T
+for(i in 1:50){
+  run = test_sets[i,1]
+  fold= test_sets[i,2]
+  fold_ID = as.numeric(fold)
   
-  test_ids = CV_mat[,run]==fold_ID
+  test_ids = CV_mat[,as.numeric(run)]==fold_ID
   Y_train = Y_testing = Y
   Y_train[test_ids,] = NA
   Y_testing[!test_ids,] = NA
@@ -254,7 +214,7 @@ for(fold in 1:k_fold){
   MegaLMM_Eta_mean_accuracy = cor(Y_testing[,1],Eta_mean[,1],use='p')
   
   class = rep("Train",nrow(BLUPS_foc_spec))
-  class[is.na(fold_ID_matrix[,1])]="Test"
+  class[test_ids]="Test"
   cur_frame = data.frame(Geno = genotypes,
                          BLUPs = BLUPS_foc_spec$BLUP,
                          U_hat = U_hat[,1],
@@ -264,21 +224,24 @@ for(fold in 1:k_fold){
                          Fold = fold,
                          DAT = dat,
                          Trait = trait,
-                         n_WL = HS_mat_n_col)
+                         n_WL = HS_mat_n_col,
+                         rep = i)
   t_acc_frame = data.frame(U_hat_accuracy = MegaLMM_Uhat_accuracy,
                            Eta_mean_accuracy = MegaLMM_Eta_mean_accuracy, 
                            Run = run, 
                            Fold = fold,
                            DAT = dat,
-                           Trait = trait)
-  if(fold==1){
+                           Trait = trait,
+                           rep = i)
+  if(nf==T){
     result_frame = cur_frame
     acc_frame = t_acc_frame
+    nf=F
   }else{
     result_frame = rbind(result_frame,cur_frame)
     acc_frame = rbind(acc_frame,t_acc_frame)
   }
 }
 
-write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_dat",dat,"_run",run,"_accuracy_frame_MegaLMM.csv"))
-write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_dat",dat,"_run",run,"_prediction_frame_MegaLMM.csv"))
+write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_accuracy.csv"))
+write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_prediction.csv"))
