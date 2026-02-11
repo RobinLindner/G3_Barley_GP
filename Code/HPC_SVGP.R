@@ -7,7 +7,7 @@ source("0_utils.R")
 
 args = commandArgs(trailingOnly = T)
 
-outpath = args[1]
+out_path = args[1]
 
 trait = args[2]
 
