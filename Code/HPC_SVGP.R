@@ -132,7 +132,7 @@ for(i in 1:50){
   cur_pred$Repetition = i
   
   
-  cur_acc_MFE = t(as.data.frame(res_MFE$Accuracy))
+  cur_acc_MFE = as.data.frame(t(data.frame(res_MFE$Accuracy)))
   colnames(cur_acc_MFE) = c("GBLUP","HBLUP","GHBLUP","GBLUPnonAdj","HBLUPnonAdj","GHBLUPnonAdj","nFixedEffects","nLinearlyDependentMarkers")
   cur_acc_MFE$Run = run
   cur_acc_MFE$Fold = fold
