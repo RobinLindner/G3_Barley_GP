@@ -2,7 +2,7 @@
 #SBATCH --job-name=MultiVariateGP
 #SBATCH --output=Debug/run_%A_%a.out
 #SBATCH --error=Debug/run_%A_%a.err
-#SBATCH --time=03:00:00
+#SBATCH --time=20:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=12G

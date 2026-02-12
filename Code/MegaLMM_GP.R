@@ -87,6 +87,7 @@ CV_mat = CV_mat[match(genotypes,rownames(CV_mat)),]
 
 nf=T
 for(i in 1:50){
+  print(i)
   run = test_sets[i,1]
   fold= test_sets[i,2]
   fold_ID = as.numeric(fold)
