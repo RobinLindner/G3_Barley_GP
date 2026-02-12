@@ -102,9 +102,7 @@ for(i in 1:50){
   
   print(paste0("DAT:",dat," Trait:",trait))
   #print(paste0("number of sigificant SNPs: ",ncol(X)))
-  
 
-  
 
   fold_vec = CV_mat[,as.numeric(run)]
   test_idx = which(fold_vec==as.numeric(fold))
@@ -136,6 +134,9 @@ for(i in 1:50){
   
   cur_acc_MFE = t(as.data.frame(res_MFE$Accuracy))
   colnames(cur_acc_MFE) = c("GBLUP","HBLUP","GHBLUP","GBLUPnonAdj","HBLUPnonAdj","GHBLUPnonAdj","nFixedEffects","nLinearlyDependentMarkers")
+  cur_acc_MFE$Run = run
+  cur_acc_MFE$Fold = fold
+  cur_acc_MFE$Repetition = i
   
   cur_pred_MFE = res_MFE$Predictions
   cur_pred_MFE$Run = run

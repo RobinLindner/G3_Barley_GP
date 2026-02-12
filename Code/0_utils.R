@@ -329,6 +329,7 @@ UV_lm <- function(BLUPS_foc_spec,test_idx,H){
   
   train_data=BLUPS_foc_spec
   train_data$BLUP[test_idx]= NA
+  #train_data=train_data[order(train_data$X),]
   
   test_y = BLUPS_foc_spec$BLUP[test_idx]
   
@@ -339,7 +340,7 @@ UV_lm <- function(BLUPS_foc_spec,test_idx,H){
   GBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = K))
   
   pred_GBLUP_train <- predict(GBLUP_model)
-  pred_GBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% GBLUP_model@u
+  pred_GBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% GBLUP_model@u[match(train_geno,levels(GBLUP_model@frame$X))]
   pred_GBLUP_full=c()
   pred_GBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GBLUP_train
   pred_GBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GBLUP_test
@@ -350,7 +351,7 @@ UV_lm <- function(BLUPS_foc_spec,test_idx,H){
   HBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = H))
   
   pred_HBLUP_train <- predict(HBLUP_model)
-  pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u
+  pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u[match(train_geno,levels(HBLUP_model@frame$X))]
   pred_HBLUP_full=c()
   pred_HBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_HBLUP_train
   pred_HBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_HBLUP_test
@@ -362,7 +363,9 @@ UV_lm <- function(BLUPS_foc_spec,test_idx,H){
   formula <- as.formula(BLUP~ (1|X)+(1|X_H))
   G_HBLUP_model <- relmatLmer(formula, train_data_ext, relmat=list(X = K,X_H=H))
   pred_GHBLUP_train <- predict(G_HBLUP_model)
-  pred_GHBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% G_HBLUP_model@u[1:length(train_geno)] + H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+  u_G = G_HBLUP_model@u[1:length(train_geno)]
+  u_H = G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+  pred_GHBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% u_G[match(train_geno,levels(G_HBLUP_model@frame$X))]+ H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% u_H[match(train_geno,levels(G_HBLUP_model@frame$X))] 
   pred_GHBLUP_full=c()
   pred_GHBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_train[1:(length(pred_GHBLUP_train)/2)]
   pred_GHBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_test
@@ -443,7 +446,7 @@ UV_lm_MFE <- function(BLUPS_foc_spec,test_idx,snp_idxs,H,geno_mat){
   GBLUP_model <- relmatLmer(formula, train_data, relmat=list(X = Kinship_mat))
   
   pred_GBLUP_train <- predict(GBLUP_model)
-  pred_GBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% GBLUP_model@u
+  pred_GBLUP_test <- K[test_geno,train_geno] %*% solve(K[train_geno,train_geno]) %*% GBLUP_model@u[match(train_geno,levels(GBLUP_model@frame$X))]
   pred_GBLUP_full=c()
   pred_GBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GBLUP_train
   pred_GBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GBLUP_test
@@ -454,7 +457,7 @@ UV_lm_MFE <- function(BLUPS_foc_spec,test_idx,snp_idxs,H,geno_mat){
   HBLUP_model <- relmatLmer(as.formula(paste0("BLUP ~ ", fixed_effect_t ," (1|X)")), train_data, relmat=list(X = H))
   
   pred_HBLUP_train <- predict(GBLUP_model)
-  pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u
+  pred_HBLUP_test <- H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% HBLUP_model@u[match(train_geno,levels(HBLUP_model@frame$X))]
   pred_HBLUP_full=c()
   pred_HBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_HBLUP_train
   pred_HBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_HBLUP_test
@@ -468,8 +471,11 @@ UV_lm_MFE <- function(BLUPS_foc_spec,test_idx,snp_idxs,H,geno_mat){
   
   
   pred_GHBLUP_train <- predict(G_HBLUP_model)
-  pred_GHBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% G_HBLUP_model@u[1:length(train_geno)] + H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+  u_G = G_HBLUP_model@u[1:length(train_geno)]
+  u_H = G_HBLUP_model@u[(length(train_geno)+1):length(G_HBLUP_model@u)]
+  pred_GHBLUP_test <- Kinship_mat[test_geno,train_geno] %*% solve(Kinship_mat[train_geno,train_geno]) %*% u_G[match(train_geno,levels(G_HBLUP_model@frame$X))]+ H[test_geno,train_geno] %*% solve(H[train_geno,train_geno]) %*% u_H[match(train_geno,levels(G_HBLUP_model@frame$X))] 
   pred_GHBLUP_full=c()
+  
   pred_GHBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_train[1:(length(pred_GHBLUP_train)/2)]
   pred_GHBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_test
   GHBLUP_acc=cor(pred_GHBLUP_test,test_y)
