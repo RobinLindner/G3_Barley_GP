@@ -37,7 +37,7 @@ output_file3="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_CV2
 output_file4="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_MFE_CV2_accuracy.csv"
 
 # 4. Execution
-cd /work/lindner5/master/G3_Barley_GP
+cd /work/lindner5/projects/master/G3_Barley_GP
 
 if [[ ! -f "$output_file1" ]]; then
 echo "Processing Trait: $trait | Dat: $dat"
