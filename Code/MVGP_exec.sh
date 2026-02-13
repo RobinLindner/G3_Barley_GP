@@ -31,19 +31,20 @@ dat=${dats[$dat_idx]}
 # 3. Skip if file exists
 
 output_path="Data/Generated/GenomicPrediction/MVGP/"
-output_file="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_accuracy.csv"
-if [ -f "$output_file" ]; then
-echo "File $output_file exists. Skipping."
-exit 0
-fi
+output_file1="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_accuracy.csv"
+output_file2="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_accuracy_frame_MegaLMM_MFE.csv"
+
 
 # 4. Execution
-# Note: Source your conda/mamba profile if 'mamba activate' isn't in your .bashrc
-#source $(conda info --base)/etc/profile.d/conda.sh
-#conda activate G3_pub
-
 cd /work/lindner5/master/G3_Barley_GP
 
+if [[ ! -f "$output_file1" ]]; then
 echo "Processing Trait: $trait | Dat: $dat"
-Rscript Code/MegaLMM_GP.R ${output_path} ${trait} ${dat} $scenarioID
-Rscript Code/MegaLMM_MFE_GP.R ${output_path} ${trait} ${dat} $scenarioID
+Rscript Code/MegaLMM_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID"
+fi
+
+if [[ ! -f "$output_file2" ]]; then
+echo "Processing Trait: $trait | Dat: $dat | with marker fixed effects"
+Rscript Code/MegaLMM_MFE_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID"
+fi
+
