@@ -2,7 +2,7 @@
 #SBATCH --job-name=MultiVariateGP
 #SBATCH --output=Debug/run_%A_%a.out
 #SBATCH --error=Debug/run_%A_%a.err
-#SBATCH --time=20:00:00
+#SBATCH --time=40:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=12G
@@ -32,19 +32,29 @@ dat=${dats[$dat_idx]}
 
 output_path="Data/Generated/GenomicPrediction/MVGP/"
 output_file1="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_accuracy.csv"
-output_file2="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_accuracy_frame_MegaLMM_MFE.csv"
-
+output_file2="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_MFE_accuracy.csv"
+output_file3="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_CV2_accuracy.csv"
+output_file4="Data/Generated/GenomicPrediction/MVGP/Accuracy/${trait}_${dat}_MFE_CV2_accuracy.csv"
 
 # 4. Execution
 cd /work/lindner5/master/G3_Barley_GP
 
 if [[ ! -f "$output_file1" ]]; then
 echo "Processing Trait: $trait | Dat: $dat"
-Rscript Code/MegaLMM_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID"
+Rscript Code/MegaLMM_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID" 0
 fi
 
 if [[ ! -f "$output_file2" ]]; then
 echo "Processing Trait: $trait | Dat: $dat | with marker fixed effects"
-Rscript Code/MegaLMM_MFE_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID"
+Rscript Code/MegaLMM_MFE_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID" 0
 fi
 
+if [[ ! -f "$output_file3" ]]; then
+echo "Processing Trait: $trait | Dat: $dat"
+Rscript Code/MegaLMM_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID" 1
+fi
+
+if [[ ! -f "$output_file4" ]]; then
+echo "Processing Trait: $trait | Dat: $dat | with marker fixed effects"
+Rscript Code/MegaLMM_MFE_GP.R "${output_path}" "${trait}" "${dat}" "$scenarioID" 1
+fi

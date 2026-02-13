@@ -18,6 +18,9 @@ dat = as.numeric(args[3])
 # The ID of the scenario
 scenarioID = as.numeric(args[4]) 
 
+# is CV2
+isCV2 = as.logical(as.numeric(args[5]))
+
 
 if(!dir.exists(out_path)){
   dir.create(out_path)
@@ -94,8 +97,14 @@ for(i in 1:50){
   
   test_ids = CV_mat[,as.numeric(run)]==fold_ID
   Y_train = Y_testing = Y
-  Y_train[test_ids,] = NA
-  Y_testing[!test_ids,] = NA
+  if(isCV2){
+    Y_train[test_ids,1] = NA
+    Y_testing[!test_ids,1] = NA
+  }else{
+    Y_train[test_ids,] = NA
+    Y_testing[!test_ids,] = NA
+  }
+  
   
   ## MegaLMM
   run_parameters = MegaLMM_control(
@@ -218,7 +227,7 @@ for(i in 1:50){
   class[test_ids]="Test"
   cur_frame = data.frame(Geno = genotypes,
                          BLUPs = BLUPS_foc_spec$BLUP,
-                         U_hat = U_hat[,1],
+                         MegaLMM = U_hat[,1],
                          Eta_mean = Eta_mean[,1],
                          Class = class,
                          Run = run,
@@ -243,6 +252,10 @@ for(i in 1:50){
     acc_frame = rbind(acc_frame,t_acc_frame)
   }
 }
-
-write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_accuracy.csv"))
-write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_prediction.csv"))
+if(isCV2){
+  write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_CV2_accuracy.csv"))
+  write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_CV2_prediction.csv"))
+}else{
+  write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_accuracy.csv"))
+  write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_prediction.csv"))
+}

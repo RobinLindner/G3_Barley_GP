@@ -18,6 +18,7 @@ dat = as.numeric(args[3])
 # The ID of the scenario
 scenarioID = as.numeric(args[4]) 
 
+isCV2 = as.logical(as.numeric(args[5]))
 
 if(!dir.exists(out_path)){
   dir.create(out_path)
@@ -72,6 +73,8 @@ BLUPS_HS_spec <- all_BLUPs_HS %>%
   filter(DAT==dat) %>%
   filter(X %in% genotypes)
 
+BLUPS_HS_spec = BLUPS_HS_spec[match(genotypes,BLUPS_HS_spec$X),]
+
 HS_mat = pivot_wider(BLUPS_HS_spec,id_cols = c(X),names_from = Trait,values_from = BLUP)%>%
   dplyr::select(where(~any(. !=1,na.rm=T))) %>%
   tibble::column_to_rownames(var="X")
@@ -81,7 +84,7 @@ HS_mat = HS_mat[,!apply(HS_mat,2,var)==0]
 HS_mat_n_col = ncol(HS_mat)
 
 
-Y = cbind(BLUPS_foc_spec$BLUP[match(BLUPS_foc_spec$X,genotypes)],HS_mat[genotypes,])
+Y = cbind(BLUPS_foc_spec$BLUP,HS_mat)
 names(Y)[1]=trait
 
 
@@ -281,6 +284,9 @@ for(i in 1:50){
   
   MegaLMM_Uhat_accuracy = cor(Y_testing[,1],U_hat[,1],use='p')
   MegaLMM_Eta_mean_accuracy = cor(Y_testing[,1],Eta_mean[,1],use='p')
+  fe = as.matrix(cbind(rep(1,nrow(red$mat)),red$mat))
+  MegaLMM_adjusted_accuracy = cor(Y_testing[,1],fe %*% Beta_hat[,1],use='p')
+  
   
   class = rep("Train",nrow(BLUPS_foc_spec))
   class[test_ids]="Test"
@@ -294,27 +300,32 @@ for(i in 1:50){
                          DAT = dat,
                          Trait = trait,
                          n_WL = HS_mat_n_col,
-                         n_FE = ncol(X))
+                         n_FE = ncol(X),
+                         rep = i)
   t_acc_frame = data.frame(U_hat_accuracy = MegaLMM_Uhat_accuracy,
-                           Eta_mean_accuracy = MegaLMM_Eta_mean_accuracy, 
+                           Eta_mean_accuracy = MegaLMM_Eta_mean_accuracy,
+                           MegaLMM= MegaLMM_adjusted_accuracy,
                            Run = run, 
                            Fold = fold,
                            DAT = dat,
-                           Trait = trait)
+                           Trait = trait,
+                           rep = i)
   if(!is.null(X_fe)){
   t_fe_frame = data.frame(SNPs = c("Intercept",colnames(X_fe)),
                           FE = Beta_hat[,1],
                           Run = run, 
                           Fold = fold,
                           DAT = dat,
-                          Trait = trait)
+                          Trait = trait,
+                          rep = i)
   }else{
     t_fe_frame = data.frame(SNPs = NA,
                             FE = NA,
                             Run = run, 
                             Fold = fold,
                             DAT = dat,
-                            Trait = trait)
+                            Trait = trait,
+                            rep = i)
   }
   if(nf==T){
     result_frame = cur_frame
@@ -327,6 +338,13 @@ for(i in 1:50){
     fe_frame = rbind(fe_frame,t_fe_frame)
   }
 }
-write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_accuracy_frame_MegaLMM_MFE.csv"))
-write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_prediction_frame_MegaLMM_MFE.csv"))
-write.csv(fe_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_fe_frame_MegaLMM_MFE.csv"))
+
+if(isCV2){
+  write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_MFE_CV2_accuracy.csv"))
+  write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_MFE_CV2_prediction.csv"))
+  write.csv(fe_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_MFE_CV2_fixedEffects.csv"))
+}else{
+  write.csv(acc_frame,paste0(out_path,"/Accuracy/",trait,"_",dat,"_MFE_accuracy.csv"))
+  write.csv(result_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_MFE_prediction.csv"))
+  write.csv(fe_frame,paste0(out_path,"/Predictions/",trait,"_",dat,"_MFE_fixedEffects.csv"))
+}
