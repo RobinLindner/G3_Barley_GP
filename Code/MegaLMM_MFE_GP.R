@@ -73,7 +73,7 @@ BLUPS_HS_spec <- all_BLUPs_HS %>%
   filter(DAT==dat) %>%
   filter(X %in% genotypes)
 
-BLUPS_HS_spec = BLUPS_HS_spec[match(genotypes,BLUPS_HS_spec$X),]
+
 
 HS_mat = pivot_wider(BLUPS_HS_spec,id_cols = c(X),names_from = Trait,values_from = BLUP)%>%
   dplyr::select(where(~any(. !=1,na.rm=T))) %>%
@@ -83,10 +83,11 @@ HS_mat = HS_mat[,!apply(HS_mat,2,var)==0]
 
 HS_mat_n_col = ncol(HS_mat)
 
+HS_mat = HS_mat[match(genotypes,rownames(HS_mat)),]
 
 Y = cbind(BLUPS_foc_spec$BLUP,HS_mat)
 names(Y)[1]=trait
-
+rownames(Y) = genotypes
 
 validScenarios = read.csv(GP_valid_scenarios_file)
 snp_idxs = as.numeric(unlist(strsplit(validScenarios$SNP_idxs[scenarioID],", ")))
@@ -124,6 +125,7 @@ for(i in 1:50){
       X_fe = red$mat
     }
     fixed_effect_t = paste(paste(colnames(X_fe), collapse = " + "),"+")
+    print(rownames(Y))
     data = cbind(data.frame(Genotype=rownames(Y)),X_fe)
     names(data)=c("Genotype",colnames(X_fe))
   }else{

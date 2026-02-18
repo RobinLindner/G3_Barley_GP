@@ -72,14 +72,16 @@ HS_mat = pivot_wider(BLUPS_HS_spec,id_cols = c(X),names_from = Trait,values_from
   tibble::column_to_rownames(var="X")
 
 
-
 HS_mat = HS_mat[,!apply(HS_mat,2,var)==0]
 
 HS_mat_n_col = ncol(HS_mat)
 
+HS_mat = HS_mat[match(genotypes,rownames(HS_mat)),]
 
-Y = cbind(BLUPS_foc_spec$BLUP[match(BLUPS_foc_spec$X,genotypes)],HS_mat[genotypes,])
+
+Y = cbind(BLUPS_foc_spec$BLUP,HS_mat)
 names(Y)[1]=trait
+rownames(Y) = genotypes
 
 
 validScenarios = read.csv(GP_valid_scenarios_file)
