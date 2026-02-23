@@ -48,8 +48,8 @@ args = commandArgs(trailingOnly = TRUE)
 
 ## Read input data
 
-BLUPs_normalized = read.csv(args[1])
-phenotype = BLUPs_normalized %>%
+BLUEs_normalized = read.csv(args[1])
+phenotype = BLUEs_normalized %>%
   filter(!is.na(Value)) %>%
   pivot_wider(id_cols = Genotype,
               names_from = c(Trait,DAT),
