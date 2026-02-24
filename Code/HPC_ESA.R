@@ -19,11 +19,11 @@
 ##   GWAS results need to follow the nomenclature: trait_._._dat
 ##
 ##   Genome-wide significance threshold was computed as 
-##   0.05 / 1713 = 2.918856e-05
+##   0.05 / 1322 = 3.782148e-05
 ##
 ## ---------------------------
+source("0_utils.R")
 
-## set working directory for Mac and PC
 # arg1 = folder of GWAS results
 # arg2 = significance threshold
 # arg3 = output file
