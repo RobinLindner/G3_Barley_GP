@@ -33,8 +33,8 @@ args = commandArgs(trailingOnly = TRUE)
 nf=T
 sig_assoc=data.frame()
 for(file in list.files(args[1])){
-  trait = sub("_._._.+","",file)
-  dat = sub(".FarmCPU.csv","",sub(".+_._._","",file))
+  trait = gsub("_\\._\\._.+","",file)
+  dat = sub(".FarmCPU.csv","",sub(".+_\\._\\._","",file))
   print(paste0("Processing trait: ",trait," at DAT: ",dat))
   temp_result = read.csv(file.path(args[1],file))
   colnames(temp_result)[9] = "p_value"
