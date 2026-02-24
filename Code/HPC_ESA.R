@@ -29,13 +29,13 @@ source("0_utils.R")
 # arg3 = output file
 
 args = commandArgs(trailingOnly = TRUE)
-args = c("../Data/Generated/GWAS_results/",2.918856e-05,"../Data/Generated/") 
+#args = c("../Data/Generated/GWAS_results/",2.918856e-05,"../Data/Generated/") 
 nf=T
 sig_assoc=data.frame()
 for(file in list.files(args[1])){
   trait = sub("_._._.+","",file)
   dat = sub(".FarmCPU.csv","",sub(".+_._._","",file))
-  
+  print(paste0("Processing trait: ",trait," at DAT: ",dat))
   temp_result = read.csv(file.path(args[1],file))
   colnames(temp_result)[9] = "p_value"
   temp_result = temp_result %>%
