@@ -32,7 +32,7 @@ outpath = "../GP_Results"
 
 ## ---- load GP input data ----
 
-focal_traits = c("RGB1_Plant_Avg_HEIGHT_MM","VNIR_Plant_NDVI.avg","SC_Plant_Weight")
+focal_traits = c("RGB1_Plant_Avg_HEIGHT_MM","VNIR_Plant_NDVI.avg")
 
 # Read Kinship matrix as covariance strukture K
 K = read.csv(GRM_path,row.names = 1)
@@ -198,5 +198,193 @@ write.csv(all_trait_MFE_fe_df,paste0(out_path,"/all_trait_SV_MFE_fixed_effects.c
 # }
 
 
+# ---- Evaluation ----
+files = list.files("../Data/Generated/GenomicPrediction/UVGP/")
 
+UV_accuracy_df = data.frame()
+UV_prediction_df = data.frame()
+UV_FE_df = data.frame()
+
+acc_nf = T
+pred_nf= T
+fe_nf = T
+for(file in files){
+  if(grepl("_accuracy.csv",file)){
+    if(grepl("_MFE_",file)){
+      scenario = sub("_MFE_accuracy.csv","",file)
+    }else{
+      scenario = sub("_accuracy.csv","",file)
+    }
+    t = strsplit(scenario,"_")
+    dat = t[[1]][length(t[[1]])]
+    trait = paste0((t[[1]][-length(t[[1]])]),collapse = "_")
+    df = read.csv(paste0("../Data/Generated/GenomicPrediction/UVGP_old//",file))
+    df$Trait = trait
+    df$Dat = dat
+    df$MFE = grepl("_MFE_",file)
+    if(acc_nf){
+      UV_accuracy_df = df
+      acc_nf = F
+    }else{
+      UV_accuracy_df = bind_rows(UV_accuracy_df, df)
+    }
+  }
+  else if(grepl("_predictions.csv", file)){
+    if(grepl("_MFE_", file)){
+      scenario = sub("_MFE_predictions.csv","",file)
+    }else{
+      scenario = sub("_predictions.csv","",file)
+    }
+    t = strsplit(scenario,"_")
+    dat = t[[1]][length(t[[1]])]
+    trait = paste0((t[[1]][-length(t[[1]])]),collapse = "_")
+    df = read.csv(paste0("../Data/Generated/GenomicPrediction/UVGP/",file))
+    df$Trait = trait
+    df$Dat = dat
+    df$MFE = grepl("_MFE_", file)
+    if(pred_nf){
+      UV_prediction_df = df
+      pred_nf = F
+    }else{
+      UV_prediction_df = bind_rows(UV_prediction_df, df)
+    }
+  }
+  else if(grepl("_fixed_effects", file)){
+    scenario = sub("_MFE_fixed_effects.csv","",file)
+    t = strsplit(scenario,"_")
+    dat = t[[1]][length(t[[1]])]
+    trait = paste0((t[[1]][-length(t[[1]])]),collapse = "_")
+    df = read.csv(paste0("../Data/Generated/GenomicPrediction/UVGP/",file))
+    df$Trait = trait
+    df$Dat = dat
+    if(fe_nf){
+      UV_FE_df = df
+      fe_nf = F
+    }else{
+      UV_FE_df = bind_rows(UV_FE_df, df)
+    }
+  }
+}
+
+acc_files = list.files("../Data/Generated/GenomicPrediction/MVGP/Accuracy/")
+pred_files = list.files("../Data/Generated/GenomicPrediction/MVGP/Predictions/")
+
+MV_accuracy_df = data.frame()
+MV_prediction_df = data.frame()
+MV_FE_df = data.frame()
+
+acc_nf = T
+pred_nf= T
+fe_nf = T
+
+for(file in acc_files){
+  if(grepl("_CV2_",file)){
+    CV2 = T
+  }else{
+    CV2 = F
+  }
+  if(grepl("_MFE_",file)){
+    MFE = T
+  }else{
+    MFE = F
+  }
+  if(MFE){
+    if(CV2){
+      scenario = sub("MFE_CV2_accuracy.csv","",file)
+    }else{
+      scenario = sub("MFE_accuracy.csv","",file)
+    }
+    
+  }else{
+    if(CV2){
+      scenario = sub("_CV2_accuracy.csv","",file)
+    }else{
+      scenario = sub("_accuracy.csv","",file)
+    }
+    
+  }
+  t = strsplit(scenario,"_")
+  dat = t[[1]][length(t[[1]])]
+  trait = paste0((t[[1]][-length(t[[1]])]),collapse = "_")
+  df = read.csv(paste0("../Data/Generated/GenomicPrediction/MVGP/Accuracy/",file))
+  #if(MFE){
+  #  colnames(df)[c(3,2)] = c("Uhat_accuracy","Eta_mean_accuracy")
+  #}else{
+  #  colnames(df)[c(2,3)] = c("MegaLMM","MegaLMM_secondary")
+  #}
+  df$MFE = MFE
+  df$CV2 = CV2
+  if(acc_nf){
+    MV_accuracy_df = df
+    acc_nf = F
+  }else{
+    MV_accuracy_df = bind_rows(MV_accuracy_df, df)
+  }
+}
+for(file in pred_files){
+  if(grepl("_prediction", file)){
+    if(grepl("_CV2_",file)){
+      CV2 = T
+    }else{
+      CV2 = F
+    }
+    if(grepl("_MFE_",file)){
+      MFE = T
+    }else{
+      MFE = F
+    }
+    if(MFE){
+      if(CV2){
+        scenario = sub("MFE_CV2_predicion.csv","",file)
+      }else{
+        scenario = sub("MFE_predicion.csv","",file)
+      }
+      
+    }else{
+      if(CV2){
+        scenario = sub("_CV2_predicion.csv","",file)
+      }else{
+        scenario = sub("_predicion.csv","",file)
+      }
+      
+    }
+    t = strsplit(scenario,"_")
+    dat = t[[1]][length(t[[1]])]
+    trait = paste0((t[[1]][-length(t[[1]])]),collapse = "_")
+    df = read.csv(paste0("../Data/Generated/GenomicPrediction/MVGP/Predictions/",file),row.names = 1)
+    df$MFE = MFE
+    df$CV2 = CV2
+    if(pred_nf){
+      MV_prediction_df = df
+      pred_nf = F
+    }else{
+      MV_prediction_df = bind_rows(MV_prediction_df, df)
+    }
+  }
+  else if(grepl("fixedEffects", file)){
+    if(grepl("_CV2_",file)){
+      CV2 = T
+    }else{
+      CV2 = F
+    }
+    if(CV2){
+      scenario = sub("MFE_CV2_fixedEffects.csv","",file)
+    }else{
+      scenario = sub("MFE_fixedEffects.csv","",file)
+    }
+    t = strsplit(scenario,"_")
+    dat = t[[1]][length(t[[1]])]
+    trait = paste0((t[[1]][-length(t[[1]])]),collapse = "_")
+    df = read.csv(paste0("../Data/Generated/GenomicPrediction/MVGP/Predictions/",file),row.names = 1)
+    df$Trait = trait
+    df$Dat = dat
+    df$CV2 = CV2
+    if(fe_nf){
+      MV_FE_df = df
+      fe_nf = F
+    }else{
+      MV_FE_df = bind_rows(MV_FE_df, df)
+    }
+  }
+}
 

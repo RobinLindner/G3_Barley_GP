@@ -11,7 +11,7 @@
 
 
 # 1. Define your arrays
-traits=("RGB1_Plant_Avg_HEIGHT_MM" "VNIR_Plant_NDVI.avg" "SC_Plant_Weight")
+traits=("RGB1_Plant_Avg_HEIGHT_MM" "SC_Plant_Weight" "VNIR_Plant_NDVI.avg")
 dats=(14 21 28 35 42)
 
 

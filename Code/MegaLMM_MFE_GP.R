@@ -29,23 +29,24 @@ if(!dir.exists(file.path(out_path,"Accuracy"))){
   dir.create(file.path(out_path,"Predictions"))
 }
 
-all_BLUPs = read_csv_retry(BLUP_normalized_path, rn = F)
+all_BLUPs = read_csv_retry(BLUE_normalized_path, rn = F)
 names(all_BLUPs)[c(1,4)]=c("X","BLUP")
 
-all_BLUPs_HS = read_csv_retry(HSR_BLUP_normalized_path, rn = F)
+all_BLUPs_HS = read_csv_retry(HSR_BLUE_normalized_path, rn = F)
 names(all_BLUPs_HS)[c(1,4)]=c("X","BLUP")
 
 #K = read_csv_retry(GRM_path, rn = T)
 CV_mat = read_csv_retry(GP_CV_matrix_file,rn=T)
 
 
-marker_geno = read.table(numeric_geno_file)
-marker_sites = read.table(sites_file,header=T)
-marker_taxa = read.table(taxa_file,header=T)
-dimnames(marker_geno)=list(x=marker_sites$Name,y=marker_taxa$Taxa)
+marker_geno = t(as.matrix(read.table(numeric_geno_file_alt)))
+marker_sites = read.table(sites_file_alt,header=T)
+marker_taxa = read.table(taxa_file_alt,header=T)
 
-# mxn => nxm
-geno_num = t(marker_geno)
+rownames(marker_geno) = marker_taxa$Taxa
+colnames(marker_geno) = marker_sites$Name
+
+geno_num = marker_geno
 
 genotypes = sort(read_table_retry(geno4GP_file)$X)
 
@@ -109,9 +110,14 @@ for(i in 1:50){
   
   test_ids = CV_mat[,as.numeric(run)]==fold_ID
   Y_train = Y_testing = Y
-  Y_train[test_ids,] = NA
-  Y_testing[!test_ids,] = NA
   
+  if(isCV2){
+    Y_train[test_ids,1] = NA
+    Y_testing[!test_ids,1] = NA
+  }else{
+    Y_train[test_ids,] = NA
+    Y_testing[!test_ids,] = NA
+  }
   
   
   X = geno_num[,snp_idxs]
@@ -287,7 +293,7 @@ for(i in 1:50){
   MegaLMM_Uhat_accuracy = cor(Y_testing[,1],U_hat[,1],use='p')
   MegaLMM_Eta_mean_accuracy = cor(Y_testing[,1],Eta_mean[,1],use='p')
   fe = as.matrix(cbind(rep(1,nrow(red$mat)),red$mat))
-  MegaLMM_adjusted_accuracy = cor(Y_testing[,1],fe %*% Beta_hat[,1],use='p')
+  MegaLMM_adjusted_accuracy = cor(Y_testing[,1],U_hat[,1] + fe %*% Beta_hat[,1],use='p')
   
   
   class = rep("Train",nrow(BLUPS_foc_spec))

@@ -466,6 +466,9 @@ validScenarios = usedSNP %>%
   group_by(Trait,Dat) %>%
   filter(nSNP == max(nSNP))
 
+write.csv(validScenarios,GP_valid_scenarios_file,row.names = F)
+
+
 validTestSets = data.frame()
 nf=T
 for(i in 1:100){ # iterate through all runs
@@ -517,14 +520,52 @@ while(any(TS_count_perScenario<50)){
   }
 }
 
-GetTestSetForScenario <- function(testSetsForScenario,scenarioID){
-  split = t(data.frame(strsplit(testSetsForScenario[[scenarioID]],"_")))
+GetTestSetsForScenario <- function(scenarioID){
+  temp = read.csv(GP_test_set_file,row.names = 1)
+  split = t(data.frame(strsplit(temp[,paste0("X",scenarioID)],"_")))
   rownames(split) = NULL
   colnames(split) = c("Run","Fold")
   return(split)
 }
 
-GetTestSetForScenario(testSetsForScenario,1)
+
+t=data.frame(testSetsForScenario)
+colnames(t) = seq(1,15,1)
+write.csv(t,file = "../Supplements/GP_testSets.csv")
+
+GetTestSetsForScenario(1)
 
 
+#### plot genotypes used in training
+CV_mat = read.csv(GP_CV_matrix_file,row.names = 1)
+sets = GetTestSetsForScenario(1)
+row = 1
+run = as.numeric(sets[row,1])
+fold = as.numeric(sets[row,2])
+genotypes =rownames(CV_mat)[CV_mat[,run] != fold]
 
+get_genotypes_used_in_training = function(scenarioID){
+  sets = GetTestSetsForScenario(scenarioID)
+  genotypes = c()
+  for(row in 1:nrow(sets)){
+    run = as.numeric(sets[row,1])
+    fold = as.numeric(sets[row,2])
+    genotypes =c(genotypes,rownames(CV_mat)[CV_mat[,run] != fold])
+  }
+  frequency_df=as.data.frame(table(genotypes))
+  colnames(frequency_df) = c("Genotype",paste0("sc_",scenarioID))
+  return(frequency_df)
+}
+
+for(i in 1:15){
+  df = get_genotypes_used_in_training(i)
+  if(i==1){
+    full_df = df
+  }
+  else{
+    full_df = merge(full_df,df)
+  }
+}
+full_df_wo_PW = full_df[,c(2:6,11:16)]
+
+rm = rowMeans(full_df_wo_PW[,-1])

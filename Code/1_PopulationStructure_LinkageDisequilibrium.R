@@ -44,12 +44,44 @@ if(!file.exists(GRM_path)){
   K = read.csv(GRM_path,row.names = 1)
 }
 
+renameVCFTaxa <- function(infile,outfile,prelim_col = 9){
+  lines = readLines(infile)
+  i==1
+  while(!startsWith(lines[i],"#CHROM")){
+    i=i+1
+  }
+  ID_line = lines[i]
+  split = strsplit(ID_line,"\t")
+  taxa_idxs = (prelim_col+1):length(split[[1]])
+  oldtaxa = split[[1]][taxa_idxs]
+  newtaxa = transformTaxaToGenotypeID(oldtaxa)
+  split[[1]][taxa_idxs] = newtaxa
+  lines[i]=paste(split[[1]],collapse="\t")
+  writeLines(lines,outfile)
+}
+
+renameVCFTaxa("../Data/Genotype/B1K_red_ot.vcf","../Data/Genotype/B1K_red.vcf")
+
+geno = as.matrix(attach.big.matrix("../Data/Genotype/B1K_red.geno.desc"))
+sites = read.table("../Data/Genotype/B1K_red.geno.map",header=T)
+tid = read.table("../Data/Genotype/B1K_red.geno.ind")
+
+
+## Create numeric genotypes for all chromosomes
+for(i in 1:7){
+  chrom_idx = sites$CHROM == i
+  chrom_geno = geno[,chrom_idx]
+  write.table(t(chrom_geno),paste0("../Data/Genotype/B1K_red_chr_",i,"_num_mxn.txt"),quote = F)
+}
+
 # Extract the location of origin of the phenotyped individuals
-phenotype_nonHSR = read.csv(phenotype_nonHSR)
+phenotype_nonHSR = read.csv(phenotype_nonHSR_file)
 
 genotype_location_map = phenotype_nonHSR %>%
   dplyr::select(Genotype,Location) %>%
   distinct(.keep_all = T)
+
+K = read.csv("../Data/Genotype/B1K_GRM_red.csv", row.names = 1)
 
 pca = prcomp(K)
 
@@ -68,16 +100,16 @@ df=data.frame(Genotype=rownames(K),
 df_filter <- df[!is.na(df$Location),]
 
 # Test homoscedasticity of locations in each PC 
-leveneTest(PC1 ~ Location, data = df_filter) # significant heteroscedasticity
+leveneTest(PC1 ~ Location, data = df_filter) 
 leveneTest(PC2 ~ Location, data = df_filter) # significant heteroscedasticity
-leveneTest(PC3 ~ Location, data = df_filter)
+leveneTest(PC3 ~ Location, data = df_filter) # significant heteroscedasticity
 leveneTest(PC4 ~ Location, data = df_filter) # significant heteroscedasticity
 
 
 # Test normality of standardized residuals in each PC 
 test_stdres_normality(aov(PC1~Location,df_filter)) # significantly non-normal
 test_stdres_normality(aov(PC2~Location,df_filter)) # significantly non-normal
-test_stdres_normality(aov(PC3~Location,df_filter)) # significantly non-normal
+test_stdres_normality(aov(PC3~Location,df_filter))
 test_stdres_normality(aov(PC4~Location,df_filter)) # significantly non-normal
 
 # Test separation of values due to location
@@ -85,8 +117,7 @@ kruskal.test(PC1~Location,data=df_filter) # significant separation
 kruskal.test(PC2~Location,data=df_filter) # significant separation
 kruskal.test(PC3~Location,data=df_filter) # significant separation
 kruskal.test(PC4~Location,data=df_filter) # significant separation
-kruskal.test(PC5~Location,data=df_filter) # non-significant separation
-
+kruskal.test(PC5~Location,data=df_filter) # significant separation
 
 
 # ---- Population structure plot ---- 
@@ -151,10 +182,10 @@ p3 <-ggplot(scree_df, aes(x = PC, y = Variance_Explained,fill=factor(Included,le
 col2=ggarrange(p1,p2,nrow=2,ncol=1, common.legend = TRUE, legend="right")
 ggarrange(p3,col2,nrow=1,ncol=2)
 
-ggsave(paste0(figure_dir,"Kinship_Figure.png",device = "png",bg = "white",width=12,height=5))
+ggsave(paste0(figure_dir,"Kinship_Figure_new.png"),device = "png",bg = "white",width=12,height=5)
 
 # ---- Linkage Disequilibrium ----
-# The LD table was calculated chromosome-wise through TASSEL.
+# The LD table was calculated MAF bin-wise 
 # Computation of LD-decay distances was performed on a HPC cluster.
 # Using: 
 # LD_decay_HPC.R

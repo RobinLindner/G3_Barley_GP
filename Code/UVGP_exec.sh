@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=GWAS_Shuffle
+#SBATCH --job-name=UniVariateGP
 #SBATCH --output=Debug/run_%A_%a.out
 #SBATCH --error=Debug/run_%A_%a.err
 #SBATCH --time=03:00:00
@@ -11,7 +11,7 @@
 
 
 # 1. Define your arrays
-traits=("RGB1_Plant_Avg_HEIGHT_MM" "VNIR_Plant_NDVI.avg" "SC_Plant_Weight")
+traits=("RGB1_Plant_Avg_HEIGHT_MM" "SC_Plant_Weight" "VNIR_Plant_NDVI.avg")
 dats=(14 21 28 35 42)
 
 

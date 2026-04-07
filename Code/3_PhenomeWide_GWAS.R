@@ -45,13 +45,9 @@ dir.create("../Data/Generated/GWAS_support")
 ## ---- Multiple testing correction ----
 source("simpleM.R")
 Meff=c()
-Meff[1] = computeMeff("../Data/Genotype/B1K_final_numeric_chr1.txt")
-Meff[2] = computeMeff("../Data/Genotype/B1K_final_numeric_chr2.txt")
-Meff[3] = computeMeff("../Data/Genotype/B1K_final_numeric_chr3.txt")
-Meff[4] = computeMeff("../Data/Genotype/B1K_final_numeric_chr4.txt")
-Meff[5] = computeMeff("../Data/Genotype/B1K_final_numeric_chr5.txt")
-Meff[6] = computeMeff("../Data/Genotype/B1K_final_numeric_chr6.txt")
-Meff[7] = computeMeff("../Data/Genotype/B1K_final_numeric_chr7.txt")
+for(i in 1:7){
+  Meff[i] = computeMeff(paste0("../Data/Genotype/B1K_red_chr_",i,"_num_mxn.txt"))
+}
 
 MeffTotal = sum(Meff)
 sig_threshold = 0.05/MeffTotal
@@ -70,11 +66,25 @@ snp_map = read.csv(geno_remap_file,row.names = 1)
 sig_associations = read.csv(sig_associations_file)
 sig_associations$Group = trait_groups$Group[match(sig_associations$Trait,trait_groups$Trait)]
 
+sprintf("%d significant associations found",nrow(sig_associations))
+sprintf("in %d trait-timepoint pairs",length(unique(paste0(sig_associations$Trait,sig_associations$DAT))))
+t = sig_associations %>%
+  group_by(Trait,DAT) %>%
+  summarize(Count = n())
+
+sprintf("With %g±%g associations per trait and tp.",round(mean(t$Count),2),round(sd(t$Count),2))
+
+sprintf("%d of the markers show association with any trait",length(unique(sig_associations$SNP)))
 
 ## Trait associations per marker
 traits_per_marker = sig_associations %>%
   group_by(SNP) %>%
   summarize(TraitNr = length(unique(Trait)))
+
+sprintf("Of these, %d (%f) show trait-specific association.",sum(traits_per_marker$TraitNr==1),sum(traits_per_marker$TraitNr==1)/length(unique(sig_associations$SNP)))
+
+new_t_per_m = merge(traits_per_marker,snp_map)
+
 
 ## Data frame storing group specific measurement numbers
 group_measurement_stats = data.frame(Group=unique(trait_groups$Group),
@@ -93,6 +103,12 @@ all_assoc_group_stats = sig_associations %>%
   mutate(nMeasure = group_measurement_stats$measurements[match(Group,group_measurement_stats$Group)],
          assoc_per_measure = nAssoc/group_measurement_stats$measurements[match(Group,group_measurement_stats$Group)])
 
+assoc_per_measure = sig_associations %>%
+  group_by(Group,Trait,DAT) %>%
+  summarize(nAssoc = n()) %>%
+  group_by(Group) %>%
+  summarize(Mean=mean(nAssoc),
+            Sd=sd(nAssoc))
 
 ## ---- Jaccard similarity of SNP sets between traits ----
 nTrait = 121
@@ -115,13 +131,14 @@ jac_long <- as.data.frame(jac_matrix) %>%
   filter(!is.na(Value)) %>%
   mutate(WithinGroup = sameGroup(Trait1,Trait2))
   
+jac_long
 # Wilcoxon rank sum test for difference in mean Jaccard similarity between and within groups
 jaccard_between_groups = jac_long$Value[!jac_long$WithinGroup]
 mean(jaccard_between_groups)
 sd(jaccard_between_groups)
 jaccard_within_groups = jac_long$Value[jac_long$WithinGroup]
 mean(jaccard_within_groups)
-sd(jaccard_between_groups)
+sd(jaccard_within_groups)
 
 wilcox.test(jaccard_between_groups,jaccard_within_groups)
 
@@ -184,7 +201,7 @@ for(group in groups){
       filter(Group==group & CHROM==chrom)
     nSNP = length(unique(temp$SNP))
     normalized_SNP = nSNP / SNP_density$Count[chrom]
-    enrichment = normalized_SNP / (length(unique(all_assoc$SNP)) / sum(SNP_density$Count))
+    enrichment = normalized_SNP / (length(unique(sig_associations$SNP)) / sum(SNP_density$Count))
     count_mat[chrom,] = c(chrom,nSNP,SNP_density$Count[chrom]-nSNP,SNP_density$Count[chrom])
     group_enrichment_tab[k,] = c(group,chrom,normalized_SNP,enrichment,NA)
     k=k+1
@@ -198,12 +215,23 @@ for(group in groups){
 write.csv(group_enrichment_tab[,c(1,2,5)],"../Supplements/assoc_chrom_enrichment.csv",row.names = F)
 
 
+relevant_group_enrichment = group_enrichment_tab %>%
+  filter(Group %in% c("IR","HL","CL")) %>%
+  filter(abs(as.numeric(stdRes))>2)
+
 ## ---- Trait-group specific temporal stability of SNP associations ----
 group_measurement_stats
 
 unique_SNP = sig_associations %>% 
   group_by(Trait) %>%
-  summarize(uSNP = length(unique(SNP)))
+  summarize(uSNP = length(unique(SNP)),
+            uTP = length(unique(DAT))) %>%
+  mutate(Group=trait_groups$Group[match(Trait,trait_groups$Trait)])
+
+group_snp_numbers = unique_SNP %>%
+  group_by(Group) %>%
+  summarize(mean = mean(uSNP),
+            sd = sd(uSNP))
 
 
 association_nrs=sig_associations %>%
@@ -211,9 +239,9 @@ association_nrs=sig_associations %>%
                   summarize(Count=n()) %>%
                   group_by(Trait,Group) %>%
                   summarize(mean = mean(Count),
-                            sd =sd(Count)) 
+                            sd = sd(Count)) 
 
-association_nrs$expectedAssoc = unique_SNP$uSNP / group_measurement_stats$nDAT[match(association_nrs$Group,group_measurement_stats$Group)]
+association_nrs$expectedAssoc = unique_SNP$uSNP / unique_SNP$uTP
 association_nrs$TemporalStability = association_nrs$mean / association_nrs$expectedAssoc
 
 temporal_stability_groups = association_nrs %>%
@@ -221,18 +249,62 @@ temporal_stability_groups = association_nrs %>%
   summarise(Temp_stability_Mean = mean(TemporalStability),
             Temp_stability_sd = sd(TemporalStability))
 
+
+
+height_assoc = sig_associations%>%
+  filter(Trait == "RGB1_Plant_Avg_HEIGHT_MM")
+  
+length(unique(height_assoc$DAT))
+
+## --- Temporal stability of single SNP
+snp_tps = sig_associations %>% 
+  group_by(Trait,SNP) %>%
+  summarize(nDAT = n())
+
+
+
+
 ## ---- effects of pSNP ----##
 
 pSNP=traits_per_marker %>%
   arrange(desc(TraitNr)) %>%
   head(3)
 
+get_pSNP_stats = function(pSNP){
+  print(sprintf("SNP: %s",pSNP))
+  print(sprintf("Position: %d",remap$new_position[remap$SNP == pSNP]))
+  pSNP_assoc = sig_associations[sig_associations$SNP==pSNP,]
+  pSNP_stats = pSNP_assoc %>% select(Group,Trait,DAT)
+  hist(pSNP_stats$DAT,breaks=seq(4,44,1))
+  print(sprintf("Distribution of time-points: Min:%f, Med:%f, Max:%f",min(pSNP_stats$DAT),median(pSNP_stats$DAT),max(pSNP_stats$DAT)))
+  
+  
+  pSNP_groups = pSNP_assoc %>% select(Group,Trait) %>% distinct(.keep_all = T)
+  print("NUmber of traits:")
+  print(length(unique(pSNP_groups$Trait)))
+  
+  print(sprintf("Trait composition:"))
+  print(table(pSNP_groups$Group))
+}
+
+
+
+get_pSNP_stats(pSNP$SNP[1])
+
+get_pSNP_stats(pSNP$SNP[2])
+
+get_pSNP_stats(pSNP$SNP[3])
+
+
+
+
+
 # Takes SNP ID and data.frame containing significant associations as inputs.
 # Uses these in conjunction to select the traits for which the comparison in normalized
 # BLUP values should be made. 
 pSNP1 = createTraitcomparisionDF(pSNP$SNP[1],sig_associations)
 
-# Data.frame of the normalized BLUP values used in the comparison
+# Data.frame of the normalized BLUE values used in the comparison
 pSNP1[[1]]
 
 # Data.frame of TukeyHSD test results between normalized BLUP values for genotypes
@@ -242,15 +314,81 @@ t1=pSNP1[[2]]
 
 
 
+
 pSNP2 = createTraitcomparisionDF(pSNP$SNP[2],sig_associations)
 
+t1 = pSNP2[[2]]
+
+
 pSNP3 = createTraitcomparisionDF(pSNP$SNP[3],sig_associations)
+
+t1 = pSNP3[[2]]
 
 # Compute overdominance
 od_df = pSNP3[[2]] %>% group_by(Trait) %>% summarize(Overdominance = (Diff[Comparison=="Homozygotic major-Heterozygotic"]<0 && Diff[Comparison=="Homozygotic minor-Heterozygotic"]<0))
 
 
 
+
+
+geno=as.matrix(attach.big.matrix("../Data/Genotype/B1K_red.geno.desc"))
+sites = read.table("../Data/Genotype/B1K_red.geno.map",header= T)
+taxa = read.table("../Data/Genotype/B1K_red.geno.ind")
+genoID=transformTaxaToGenotypeID(taxa$V1)
+
+rownames(geno)=genoID
+colnames(geno)=sites$SNP
+
+write.csv(geno,"../Data/Genotype/B1K_red_num.txt")
+
+
 ## ---- Candidate gene inference ---- 
 # see file:
  
+
+
+## ---- Plant height GWAS ----
+ph_map  = read.csv(ph_snp_ID_map)
+
+early_snp = ph_map$SNP[c(1:11,18,25,28,31)]
+inter_snp = ph_map$SNP[c(12,15,18,20,26,27,29,32)]
+late_snp = ph_map$SNP[c(13,14,16:24,30,32)]
+
+anno_cut = read.csv(MV3_annotation_file)
+
+sites = read.table("../Data/Genotype/B1K_red_siteSummary.txt",sep="\t",header=T)
+sites = sites %>%
+  select(Site.Name,Chromosome,Physical.Position,Minor.Allele.Frequency)
+
+
+
+determineMAF_LD <- function(snps,sites,ld_decays){
+  ld_decay=c()
+  for(snp in snps){
+    maf = as.numeric(sites$Minor.Allele.Frequency[sites$Site.Name==snp])
+    for(i in seq(1,5,1)){
+      if(maf<(i/10)){
+        ld_decay = c(ld_decay,ld_decays[i])
+        break
+      }
+    }
+  }
+  return(ld_decay)
+}
+
+# Genes for different developmental periods
+
+ld_decays = c(20646,29427,1290871,17477942,12936542)
+ld = determineMAF_LD(early_snp,sites,ld_decays)
+
+ld_early = determineMAF_LD(early_snp,sites,ld_decays)
+genes_early = na.omit(GeneIDs_for_cand_SNP_new(early_snp,ld_early,anno_cut))
+
+ld_inter = determineMAF_LD(inter_snp,sites,ld_decays)
+genes_inter = na.omit(GeneIDs_for_cand_SNP_new(inter_snp,ld_inter,anno_cut))
+
+ld_late = determineMAF_LD(late_snp,sites,ld_decays)
+genes_inter = na.omit(GeneIDs_for_cand_SNP_new(late_snp,ld_late,anno_cut))
+
+
+

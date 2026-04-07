@@ -33,13 +33,13 @@ if(!dir.exists(file.path(out_path,"Accuracy"))){
 
 
 
-all_BLUPs = read_csv_retry(BLUP_normalized_path, rn = F)
-all_BLUPs_HS = read_csv_retry(HSR_BLUP_normalized_path, rn = F)
+all_BLUEs = read_csv_retry(BLUE_normalized_path, rn = F)
+all_BLUEs_HS = read_csv_retry(HSR_BLUE_normalized_path, rn = F)
 K = read_csv_retry(GRM_path, rn = T)
 CV_mat = read_csv_retry(GP_CV_matrix_file,rn=T)
 
-names(all_BLUPs)[c(1,4)]=c("X","BLUP")
-names(all_BLUPs_HS)[c(1,4)]=c("X","BLUP")
+names(all_BLUEs)[c(1,4)]=c("X","BLUP")
+names(all_BLUEs_HS)[c(1,4)]=c("X","BLUP")
 
 genotypes = sort(read_table_retry(geno4GP_file)$X)
 
@@ -55,19 +55,19 @@ if(trait == "RGB1_Plant_Avg_HEIGHT_MM"){
   foc_dat = dat
 }
 
-BLUPS_foc_spec <- all_BLUPs %>%
+BLUES_foc_spec <- all_BLUEs %>%
   filter(DAT==foc_dat) %>%
   filter(Trait==trait) %>%
   filter(X %in% genotypes) %>%
   dplyr::select(X,BLUP)
 
-BLUPS_foc_spec = BLUPS_foc_spec[match(genotypes,BLUPS_foc_spec$X),]
+BLUES_foc_spec = BLUES_foc_spec[match(genotypes,BLUES_foc_spec$X),]
 
-BLUPS_HS_spec <- all_BLUPs_HS %>%
+BLUES_HS_spec <- all_BLUEs_HS %>%
   filter(DAT==dat) %>%
   filter(X %in% genotypes)
 
-HS_mat = pivot_wider(BLUPS_HS_spec,id_cols = c(X),names_from = Trait,values_from = BLUP)%>%
+HS_mat = pivot_wider(BLUES_HS_spec,id_cols = c(X),names_from = Trait,values_from = BLUP)%>%
   dplyr::select(where(~any(. !=1,na.rm=T))) %>%
   tibble::column_to_rownames(var="X")
 
@@ -79,13 +79,14 @@ HS_mat_n_col = ncol(HS_mat)
 HS_mat = HS_mat[match(genotypes,rownames(HS_mat)),]
 
 
-Y = cbind(BLUPS_foc_spec$BLUP,HS_mat)
+Y = cbind(BLUES_foc_spec$BLUP,HS_mat)
 names(Y)[1]=trait
 rownames(Y) = genotypes
 
 
 validScenarios = read.csv(GP_valid_scenarios_file)
 snp_idxs = as.numeric(unlist(strsplit(validScenarios$SNP_idxs[scenarioID],", ")))
+
 # Read the 50 test sets from the supporting list
 test_sets = GetTestSetsForScenario(scenarioID)
 CV_mat = CV_mat[match(genotypes,rownames(CV_mat)),]
@@ -225,10 +226,10 @@ for(i in 1:50){
   MegaLMM_Uhat_accuracy = cor(Y_testing[,1],U_hat[,1],use='p')
   MegaLMM_Eta_mean_accuracy = cor(Y_testing[,1],Eta_mean[,1],use='p')
   
-  class = rep("Train",nrow(BLUPS_foc_spec))
+  class = rep("Train",nrow(BLUES_foc_spec))
   class[test_ids]="Test"
   cur_frame = data.frame(Geno = genotypes,
-                         BLUPs = BLUPS_foc_spec$BLUP,
+                         BLUPs = BLUES_foc_spec$BLUP,
                          MegaLMM = U_hat[,1],
                          Eta_mean = Eta_mean[,1],
                          Class = class,

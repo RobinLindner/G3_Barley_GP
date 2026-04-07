@@ -42,6 +42,7 @@ library(caret)
 library(Matrix)
 library(MegaLMM)
 library(tibble)
+library(stringr)
 
 #library(topGO)
 ## ---------------------------
@@ -52,15 +53,17 @@ library(tibble)
 sig_associations_file = "../Data/Generated/significant_associations.csv"
 
 ## Read-only paths:
-vcf_file ="../Data/Genotype/B1K_final.vcf"
+vcf_file ="../Data/Genotype/B1K_red.vcf"
 phenotype_nonHSR_file = "../Data/Phenotype/Merged_file_Tier1_Enviro.csv"
 phenotype_HSR_file = "../Data/Phenotype/Spectrum_Tier1.csv"
 trait_groups_file = "../Supplements/trait_groups.csv"
 
-sites_file = "../Data/Genotype/B1K_final_sites.txt" # generated in TASSEL
-taxa_file = "../Data/Genotype/B1K_final_taxa.txt" # generated in TASSEL
-numeric_geno_file = "../Data/Genotype/B1K_final_numeric.txt" # generated in TASSEL
-
+sites_file = "../Data/Genotype/B1K_red_siteSummary.txt" # generated in TASSEL
+sites_file_alt = "../Data/Genotype/B1K_final_sites.txt"
+taxa_file = "../Data/Genotype/B1K_red_taxa.txt"# generated in TASSEL
+taxa_file_alt = "../Data/Genotype/B1K_final_taxa.txt"
+numeric_geno_file = "../Data/Genotype/B1K_red_num.txt" # generated in TASSEL
+numeric_geno_file_alt = "../Data/Genotype/B1K_final_numeric.txt"
 geno4GP_file = "../Supplements/GPgenotypes.txt"
 
 ph_snp_ID_map = "../Supplements/ph_snp_map.csv"
@@ -75,12 +78,21 @@ GRM_path = "../Data/Genotype/B1K_final_GRM.csv"
 BLUP_variance_components_path = "../Data/Generated/variance_components.csv"
 BLUP_path = "../Data/Generated/BLUPs.csv"
 BLUP_normalized_path = "../Data/Generated/BLUPs_normalized.csv"
+BLUE_variance_components_path = "../Data/Generated/BLUE_variance_components.csv"
+BLUE_path = "../Data/Generated/BLUEs.csv"
+BLUE_normalized_path = "../Data/Generated/BLUEs_normalized.csv"
 phenotype_nonHSR_long_file = "../Supplements/Merged_file_Tier1_long.csv"
+
+nonHSR_h2_path = "../Data/Generated/nonHSR_h2.csv"
 
 HSR_BLUP_variance_components_path = "../Data/Generated/HSR_variance_components.csv"
 HSR_BLUP_path = "../Data/Generated/HSR_BLUPs.csv"
 HSR_BLUP_normalized_path = "../Data/Generated/HSR_BLUPs_normalized.csv"
+HSR_BLUE_variance_components_path = "../Data/Generated/BLUE_HSR_variance_components.csv"
+HSR_BLUE_path = "../Data/Generated/HSR_BLUEs.csv"
+HSR_BLUE_normalized_path = "../Data/Generated/HSR_BLUEs_normalized.csv"
 phenotype_HSR_long_file = "../Supplements/HSR_Merged_file_Tier1_long.csv"
+HSR_h2_path = "../Data/Generated/HSR_h2.csv"
 
 geno_remap_file = "../Data/Genotype/B1K_SNP_remap.csv"
 
@@ -91,7 +103,13 @@ GP_valid_scenarios_file = "../Supplements/GP_valid_modelScenarios.csv"
 figure_dir = "../Figures/"
 LD_out_file = "../Data/Genotype/LD/"
 box_cox_parameter_file = "../Data/Generated/box_cox_parameters.csv"
+BLUE_bc_parameter_file = "../Data/Generated/BLUE_bc_parameters.csv"
 HSR_box_cox_parameter_file = "../Data/Generated/HSR_box_cox_parameters.csv"
+HSR_BLUE_bc_parameter_file = "../Data/Generated/HSR_BLUE_bc_parameters.csv"
+
+MV3_annotation_file = "../Data/Genotype/CutAnnotation_MorexV3.csv"
+
+
 ## ---------------------------
 source("simpleM.R")
 ## load up functions into memory:
@@ -126,12 +144,45 @@ GeneIDs_for_cand_SNP <- function(SNPs,LD_ranges,annotation,remap){
   return(geneID_list[-1])
 }
 
+# For a selection of SNP IDs, return the candidate genes on the reference assembly
+# @ param SNPs:       vector of SNP IDs
+# @ param LD_ranges:  vector of SNP-wise LD-decay length in bp
+# @ param annotation: assembly annotation, mapping genes to positions on the genome
+# @ param remap:      remapping of the SNP positions in the genotype date to a newer assembly.
+GeneIDs_for_cand_SNP_new <- function(SNPs,LD_ranges,annotation){
+  remap <- read.csv(geno_remap_file,row.names = 1)
+  snp_positions <- remap %>%
+    filter(SNP %in% SNPs) %>%
+    dplyr::select(new_position,Chromosome)
+  if(length(SNPs)!= nrow(snp_positions)){
+    print(sprintf("%d SNP not remapped!",length(SNPs)-nrow(snp_positions)))
+    if(nrow(snp_positions)==0){return(NULL)}
+  }
+  geneID_list = c()
+  for(i in 1:nrow(snp_positions)){
+    chrom = snp_positions$Chromosome[i]
+    pos = snp_positions$new_position[i]
+    qtl_start = pos - LD_ranges[i]
+    qtl_end = pos + LD_ranges[i]
+    chr_seqID = as.character(annotation$seqid[which(annotation$chromosome == paste0(chrom,"H"))])
+    geneIDs = annotation %>%
+      filter(start<= qtl_end & end >= qtl_start) %>%
+      filter(seqid == chr_seqID) %>%
+      dplyr::select(gene) %>%
+      distinct(.keep_all = T) 
+    geneID_list = c(geneID_list,geneIDs$gene)
+    
+  }
+  return(geneID_list[-1])
+}
+
+
 
 GeneIDs_for_chromosome_range <- function(chrom,qtl_start,qtl_stop,annotation){
   geneID_list = c()
   chr_seqID = as.character(annotation$seqid[which(annotation$chromosome == paste0(chrom,"H"))])
   geneIDs = annotation %>%
-    filter(start<= qtl_end & end >= qtl_start) %>%
+    filter(start<= qtl_stop & end >= qtl_start) %>%
     filter(seqid == chr_seqID) %>%
     dplyr::select(gene) %>%
     distinct(.keep_all = T) 
@@ -140,6 +191,23 @@ GeneIDs_for_chromosome_range <- function(chrom,qtl_start,qtl_stop,annotation){
   
   geneID_list=na.omit(unique(geneID_list))
   return(geneID_list)
+}
+
+AddAdjustedPostionToMap<-function(map){
+  pos_vec = map$POS
+  chrom_vec = map$CHROM
+  max_pos=c()
+  chrom_IDs = sort(unique(as.numeric(map$CHROM)))
+  pos_vec = as.numeric(map$POS)
+  for(i in 1:length(chrom_IDs)){
+    chrom_idx = chrom_vec==chrom_IDs[i]
+    max_pos[i] = max(pos_vec[chrom_idx],na.rm = T)
+    if(i>1){
+      pos_vec[chrom_idx] = pos_vec[chrom_idx] + sum(max_pos[1:(i-1)])
+    }
+  }
+  map$adjPOS = pos_vec
+  return(map)
 }
 
 FisherGOforAllDomains<-function(cand_genes,geneUniverse,geneID2GO_map, threshold){
@@ -163,7 +231,9 @@ GetGO_pvalues <- function(cand_genes,GOdata,domain = "BP",threshold=0.05){
   diagnostics_table = GenTable(object = GOdata,resultFisher_group,topNodes=min(1000,length(resultFisher_group@score)))
   diagnostics_table = diagnostics_table %>%
     filter(result1 < threshold)
-  diagnostics_table$Domain = domain
+  if(nrow(diagnostics_table)!=0){
+    diagnostics_table$Domain = domain
+  }
   return(diagnostics_table)
 }
 
@@ -246,7 +316,7 @@ createTraitcomparisionDF <- function(snp,sig_assoc){
   geno <- read.table(numeric_geno_file)
   sites <- read.table(sites_file,header=T)
   taxa <- read.table(taxa_file,header=T)
-  blups <- read.csv(BLUP_normalized_path)
+  blups <- read.csv(BLUE_normalized_path)
   # find associated traits
   traits = sig_assoc %>%
     filter(SNP==snp) %>%
@@ -978,4 +1048,25 @@ read_table_retry <- function(file, max_retries = 3, delay = 5) {
       Sys.sleep(delay) # Wait before retrying
     })
   }
+}
+
+transformTaxaToGenotypeID = function(taxa){
+  result <- taxa %>% 
+    str_remove("_") %>% 
+    str_pad(width = 4, side = "left", pad = "0")
+  return(paste0("B1K",result))
+}
+
+transformGenotypeIDtoTaxa = function(genotypeIDs){
+  genotypeIDs = gsub("B1K0","",genotypeIDs)
+  genotypeIDs = gsub("B1K","",genotypeIDs)
+  genotypeIDs <- str_replace(genotypeIDs, "(?=.{2}$)", "_")
+  return(genotypeIDs)
+}
+
+findExtreme <- function(x){
+  Q1 = quantile(x,0.25)
+  Q3 = quantile(x,0.75)
+  IQR = Q3 - Q1
+  return((x < (Q1-10*sd(x))) | (x > (Q3 + 10*sd(x))))
 }

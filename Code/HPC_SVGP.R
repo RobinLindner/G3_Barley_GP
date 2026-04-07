@@ -26,17 +26,16 @@ K = read.csv(GRM_path,row.names = 1)
 genotypes = read.table(geno4GP_file)$X
 
 # Read numeric genotype to extract marker fixed effects (MFE)
-marker_geno = read.table(numeric_geno_file)
-marker_sites = read.table(sites_file,header=T)
-marker_taxa = read.table(taxa_file,header=T)
-dimnames(marker_geno)=list(x=marker_sites$Name,y=marker_taxa$Taxa)
 
-# mxn => nxm
-marker_geno= t(marker_geno)
+marker_geno = t(as.matrix(read.table(numeric_geno_file_alt)))
+marker_sites = read.table(sites_file_alt,header=T)
+marker_taxa = read.table(taxa_file_alt,header=T)
 
-
+rownames(marker_geno) = marker_taxa$Taxa
+colnames(marker_geno) = marker_sites$Name
+  
 # Get the marker indices for the scenario
-CV_mat = read.csv(CV_mat_file,row.names = 1)
+CV_mat = read.csv(GP_CV_matrix_file,row.names = 1)
 
 validScenarios = read.csv(GP_valid_scenarios_file)
 snp_idxs = as.numeric(unlist(strsplit(validScenarios$SNP_idxs[scenarioID],", ")))
@@ -51,18 +50,18 @@ if(trait == "RGB1_Plant_Avg_HEIGHT_MM") {
 }
 
 
-# Prepare the normalized BLUPs (i.e. focal traits)
-BLUPs_normalized = read.csv(BLUP_normalized_path) %>%
+# Prepare the normalized BLUEs (i.e. focal traits)
+BLUEs_normalized = read.csv(BLUE_normalized_path) %>%
   filter(Genotype %in% genotypes) %>%
   filter(Trait == trait) %>%
   filter(DAT == dat_foc)
 
-names(BLUPs_normalized)[c(1,4)]=c("X","BLUP")
-BLUPs_normalized=BLUPs_normalized[match(rownames(CV_mat),BLUPs_normalized$X),]
+names(BLUEs_normalized)[c(1,4)]=c("X","BLUP")
+BLUEs_normalized=BLUEs_normalized[match(rownames(CV_mat),BLUEs_normalized$X),]
 
 
 # Prepare the normalized BLUPs of the HSR data (i.e. secondary traits)
-HSR_BLUPs_normalized = read.csv(HSR_BLUP_normalized_path)%>%
+HSR_BLUEs_normalized = read.csv(HSR_BLUE_normalized_path)%>%
   filter(Genotype %in% genotypes)
 
 
@@ -81,12 +80,12 @@ for(i in 1:50){
   X <- as.data.frame(marker_geno)
   colnames(X)=map$SNP
   
-  dat_HS_blups <- HSR_BLUPs_normalized %>%
+  dat_HS_blues <- HSR_BLUEs_normalized %>%
     filter(DAT==dat)
-  colnames(dat_HS_blups)[1] = "X"
-  print(colnames(dat_HS_blups))
-  print(nrow(dat_HS_blups))
-  HS_mat = pivot_wider(dat_HS_blups,id_cols = c(X),names_from = Trait,values_from = Value)%>%
+  colnames(dat_HS_blues)[1] = "X"
+  print(colnames(dat_HS_blues))
+  print(nrow(dat_HS_blues))
+  HS_mat = pivot_wider(dat_HS_blues,id_cols = c(X),names_from = Trait,values_from = Value)%>%
     dplyr::select(where(~any(. !=1,na.rm=T))) %>%
     tibble::column_to_rownames(var="X")
   
@@ -111,14 +110,14 @@ for(i in 1:50){
   # Returns a list containing 
   # $Accuracy:    | GBLUP Accuracy | HBLUP Accuracy | G+HBLUP Accuracy 
   # $Predictions: | Genotype | BLUPs | GBLUP Prediction | HBLUP Prediction | G+HBLUP Prediction | Test/Train
-  res = UV_lm(BLUPs_normalized,test_idx,H)
+  res = UV_lm(BLUEs_normalized,test_idx,H)
   
   # Returns a list containing 
   # $Accuracy:    | GBLUP Accuracy | HBLUP Accuracy | G+HBLUP Accuracy | GBLUP Accuracy NonAdj | HBLUP Accuracy NonAdj | G+HBLUP Accuracy NonAdj | #Fixed effects | #reduced columns in genotype|
   # $Predictions: | Genotype | BLUPs | GBLUP Prediction | HBLUP Prediction | G+HBLUP Prediction | Test/Train
   # $FE_sizes:    | Fixed effect ID | GBLUP effect size | HBLUP effect size | G+HBLUP effect size 
   # NonAdj: prediction accuracy without considering marker effects cor(u,y) <=> cor(y',y)
-  res_MFE = UV_lm_MFE(BLUPs_normalized,test_idx,snp_idxs,H,X)
+  res_MFE = UV_lm_MFE(BLUEs_normalized,test_idx,snp_idxs,H,X)
   
   cur_acc = data.frame(GBLUP = res$Accuracy[1],
                        HBLUP = res$Accuracy[2],

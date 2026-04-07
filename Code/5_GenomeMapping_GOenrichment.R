@@ -199,5 +199,87 @@ res_table_late=FisherGOforAllDomains(symbol_list_late,geneList,geneID2GO,0.05)
 prepareREVIGOIn(res_table_late,file.path(outdir,"GO_ph_late.txt"))
 
 
+## ---- Plant height GWAS new ----
+ph_map  = read.csv(ph_snp_ID_map)
+
+early_snp = ph_map$SNP[c(1:11,18,25,28,31)]
+inter_snp = ph_map$SNP[c(12,15,18,20,26,27,29,32)]
+late_snp = ph_map$SNP[c(13,14,16:24,30,32)]
+ld_decays = c(20646,29427,1290871,17477942,12936542)
+anno_cut = read.csv(MV3_annotation_file)
+
+sites = read.table("../Data/Genotype/B1K_red_siteSummary.txt",sep="\t",header=T)
+sites = sites %>%
+  select(Site.Name,Chromosome,Physical.Position,Minor.Allele.Frequency)
+
+
+determineMAF_LD <- function(snps,sites,ld_decays){
+  ld_decay=c()
+  for(snp in snps){
+    maf = as.numeric(sites$Minor.Allele.Frequency[sites$Site.Name==snp])
+    for(i in seq(1,5,1)){
+      if(maf<(i/10)){
+        ld_decay = c(ld_decay,ld_decays[i])
+        break
+      }
+    }
+  }
+  return(ld_decay)
+}
+
+# Genes for different developmental periods
+
+ld_decays = c(20646,29427,1290871,17477942,12936542)
+ld = determineMAF_LD(early_snp,sites,ld_decays)
+
+ld_early = determineMAF_LD(early_snp,sites,ld_decays)
+genes_early = na.omit(GeneIDs_for_cand_SNP_new(early_snp,ld_early,anno_cut))
+
+ld_inter = determineMAF_LD(inter_snp,sites,ld_decays)
+genes_inter = na.omit(GeneIDs_for_cand_SNP_new(inter_snp,ld_inter,anno_cut))
+
+ld_late = determineMAF_LD(late_snp,sites,ld_decays)
+genes_inter = na.omit(GeneIDs_for_cand_SNP_new(late_snp,ld_late,anno_cut))
+
+
+# Genes for single ph SNP
+cand_genes = list()
+for(i in 1:nrow(ph_map)){
+  SNP = ph_map$SNP[i]
+  id = ph_map$ID[i]
+  ld =  determineMAF_LD(SNP,sites,ld_decays)
+  genes = na.omit(GeneIDs_for_cand_SNP_new(SNP,ld,anno_cut))
+  cand_genes[[id]] = genes
+}
+
+cand_gene_num = unlist(lapply(FUN=length,X = cand_genes))
+cand_gene_snp = names(cand_genes)
+
+cand_gene_vec = c()
+cand_gene_vec[match(cand_gene_snp,ph_map$ID)] = cand_gene_num
+
+missing_SNP = ph_map$SNP[is.na(cand_gene_vec)]
+missing_sites = sites[match(missing_SNP,sites$Site.Name),]
+missing_id = ph_map$ID[is.na(cand_gene_vec)] 
+for(i in 1:nrow(missing_sites)){
+  ld = determineMAF_LD(missing_sites$Site.Name[i],missing_sites,ld_decays)
+  chrom = missing_sites$Chromosome[i]
+  qtl_start = missing_sites$Physical.Position[i]-ld
+  qtl_stop = missing_sites$Physical.Position[i]+ld
+  cand_genes[[missing_id[i]]] = na.omit(GeneIDs_for_chromosome_range(chrom,qtl_start,qtl_stop,anno_cut))
+}
+
+
+## Early development
+
+early_individual_snp = c("ph-1-11",
+                         "ph-3-2",
+                         "ph-5-1",
+                         "ph-7-2")
+
+df = FisherGOforAllDomains(cand_genes[early_individual_snp[1]],
+                           )
+
+
 
 

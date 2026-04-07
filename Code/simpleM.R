@@ -72,7 +72,7 @@ inferCutoff <- function(dt_My,PCA_cutoff){
 #============================================================================
 # fix length, simpleM
 
-computeMeff <- function(fn_In,PCA_cutoff=0.995){
+computeMeff <- function(fn_In, PCA_cutoff= 0.995){
 
 mySNP_nonmissing <- read.table(fn_In, colClasses="integer")		
 
@@ -89,12 +89,12 @@ while(myStop < numLoci){
 	
 	myStop <- myStart + i*fixLength - 1
 	snpInBlk <- t(mySNP_nonmissing[myStart:myStop, ])
-	MeffBlk <- inferCutoff(snpInBlk)
+	MeffBlk <- inferCutoff(snpInBlk, PCA_cutoff)
 	simpleMeff <- c(simpleMeff, MeffBlk)
 	myStart <- myStop+1
 }
 snpInBlk <- t(mySNP_nonmissing[myStart:numLoci, ])
-MeffBlk <- inferCutoff(snpInBlk)
+MeffBlk <- inferCutoff(snpInBlk, PCA_cutoff)
 simpleMeff <- c(simpleMeff, MeffBlk)
 
 cat("Total number of SNPs is: ", numLoci, "\n")
