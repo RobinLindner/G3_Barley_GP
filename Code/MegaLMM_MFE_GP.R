@@ -288,18 +288,21 @@ for(i in 1:50){
   U_hat = get_posterior_mean(U_samples)
   Beta_hat = get_posterior_mean(B1_samples)
   Eta_mean = load_posterior_param(MegaLMM_state,'Eta_mean')
-  
+
   
   MegaLMM_Uhat_accuracy = cor(Y_testing[,1],U_hat[,1],use='p')
   MegaLMM_Eta_mean_accuracy = cor(Y_testing[,1],Eta_mean[,1],use='p')
   fe = as.matrix(cbind(rep(1,nrow(red$mat)),red$mat))
-  MegaLMM_adjusted_accuracy = cor(Y_testing[,1],U_hat[,1] + fe %*% Beta_hat[,1],use='p')
+  y_hat = U_hat[,1] + fe %*% Beta_hat[,1]
+  MegaLMM_adjusted_accuracy = cor(Y_testing[,1],y_hat,use='p')
   
   
+
   class = rep("Train",nrow(BLUPS_foc_spec))
   class[test_ids]="Test"
   cur_frame = data.frame(Geno = genotypes,
                          BLUPs = BLUPS_foc_spec$BLUP,
+                         MegaLMM = y_hat,
                          U_hat = U_hat[,1],
                          Eta_mean = Eta_mean[,1],
                          Class = class,
