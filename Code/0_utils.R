@@ -547,6 +547,8 @@ UV_lm_MFE <- function(BLUPS_foc_spec,test_idx,snp_idxs,H,geno_mat){
   pred_GHBLUP_full=c()
   pred_GHBLUP_full[na.omit(match(train_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_train[1:(length(pred_GHBLUP_train)/2)]
   pred_GHBLUP_full[na.omit(match(test_geno,BLUPS_foc_spec$X))]=pred_GHBLUP_test
+  
+  
   GHBLUP_acc=cor(pred_GHBLUP_test,test_y)
   
   print("GHBLUP done")
