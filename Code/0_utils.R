@@ -21,7 +21,7 @@
 
 ## set working directory for Mac and PC
 
-setwd(".")      # Robins's working directory (mac)
+setwd("~/Documents/Arbeit/Genetics/MasterThesis/Publication/G3_Barley_GP/Code/")      # Robins's working directory (mac)
 
 
 ## ---------------------------
@@ -44,71 +44,101 @@ library(MegaLMM)
 library(tibble)
 library(stringr)
 
+
 #library(topGO)
 ## ---------------------------
 ## load file paths into memory:
 
-## !Need to be adjusted: 
-# Depending on outpath of HPC_ESA.R call in 3_PhenomeWide_GWAS.R
-sig_associations_file = "../Data/Generated/significant_associations.csv"
+#### 1. DATA:
 
-## Read-only paths:
-vcf_file ="../Data/Genotype/B1K_red.vcf"
-phenotype_nonHSR_file = "../Data/Phenotype/Merged_file_Tier1_Enviro.csv"
-phenotype_HSR_file = "../Data/Phenotype/Spectrum_Tier1.csv"
-trait_groups_file = "../Supplements/trait_groups.csv"
+### 1.1 Genotype:
+
+filt_vcf_file = "../Data/Genotype/B1K_red_ot.vcf"
+proc_vcf_file = "../Data/Genotype/B1K_red.vcf"
 
 sites_file = "../Data/Genotype/B1K_red_siteSummary.txt" # generated in TASSEL
-sites_file_alt = "../Data/Genotype/B1K_final_sites.txt"
+#sites_file_alt = "../Data/Genotype/B1K_final_sites.txt"
 taxa_file = "../Data/Genotype/B1K_red_taxa.txt"# generated in TASSEL
-taxa_file_alt = "../Data/Genotype/B1K_final_taxa.txt"
+#taxa_file_alt = "../Data/Genotype/B1K_final_taxa.txt"
 numeric_geno_file = "../Data/Genotype/B1K_red_num.txt" # generated in TASSEL
-numeric_geno_file_alt = "../Data/Genotype/B1K_final_numeric.txt"
-geno4GP_file = "../Supplements/GPgenotypes.txt"
+#numeric_geno_file_alt = "../Data/Genotype/B1K_final_numeric.txt"
 
-ph_snp_ID_map = "../Supplements/ph_snp_map.csv"
 
-## Read and write paths:
-rMVP_out="../Data/Genotype/B1K_final"
+
+
+rMVP_out="../Data/Genotype/B1K"
 geno_path = paste0(rMVP_out,".geno.desc")
 map_path = paste0(rMVP_out,".geno.map")
 geno_IDs_path = paste0(rMVP_out,".geno.ind")
-GRM_path = "../Data/Genotype/B1K_final_GRM.csv"
 
-BLUP_variance_components_path = "../Data/Generated/variance_components.csv"
-BLUP_path = "../Data/Generated/BLUPs.csv"
-BLUP_normalized_path = "../Data/Generated/BLUPs_normalized.csv"
-BLUE_variance_components_path = "../Data/Generated/BLUE_variance_components.csv"
-BLUE_path = "../Data/Generated/BLUEs.csv"
-BLUE_normalized_path = "../Data/Generated/BLUEs_normalized.csv"
-phenotype_nonHSR_long_file = "../Supplements/Merged_file_Tier1_long.csv"
-
-nonHSR_h2_path = "../Data/Generated/nonHSR_h2.csv"
-
-HSR_BLUP_variance_components_path = "../Data/Generated/HSR_variance_components.csv"
-HSR_BLUP_path = "../Data/Generated/HSR_BLUPs.csv"
-HSR_BLUP_normalized_path = "../Data/Generated/HSR_BLUPs_normalized.csv"
-HSR_BLUE_variance_components_path = "../Data/Generated/BLUE_HSR_variance_components.csv"
-HSR_BLUE_path = "../Data/Generated/HSR_BLUEs.csv"
-HSR_BLUE_normalized_path = "../Data/Generated/HSR_BLUEs_normalized.csv"
-phenotype_HSR_long_file = "../Supplements/HSR_Merged_file_Tier1_long.csv"
-HSR_h2_path = "../Data/Generated/HSR_h2.csv"
-
-geno_remap_file = "../Data/Genotype/B1K_SNP_remap.csv"
-
-GP_CV_matrix_file = "../Supplements/GP_CV_mat2.csv"
-GP_test_set_file = "../Supplements/GP_testSets.csv"
-GP_valid_scenarios_file = "../Supplements/GP_valid_modelScenarios.csv"
-## Write-only paths:
-figure_dir = "../Figures/"
-LD_out_file = "../Data/Genotype/LD/"
-box_cox_parameter_file = "../Data/Generated/box_cox_parameters.csv"
-BLUE_bc_parameter_file = "../Data/Generated/BLUE_bc_parameters.csv"
-HSR_box_cox_parameter_file = "../Data/Generated/HSR_box_cox_parameters.csv"
-HSR_BLUE_bc_parameter_file = "../Data/Generated/HSR_BLUE_bc_parameters.csv"
+GRM_path = "../Data/Genotype/B1K_GRM_red.csv"
+GRM_alt_path = "../Data/Genotype/B1K_final_GRM.csv"
 
 MV3_annotation_file = "../Data/Genotype/CutAnnotation_MorexV3.csv"
 
+
+
+
+### 1.2 Phenotype:
+phenotype_nonHSR_file = "../Data/Phenotype/Merged_file_Tier1_Enviro.csv"
+phenotype_HSR_file = "../Data/Phenotype/Spectrum_Tier1.csv"
+
+### 1.3 Supplements:
+geno4GP_file = "../Supplements/GPgenotypes.txt"
+trait_groups_file = "../Supplements/trait_groups.csv"
+ph_snp_ID_map = "../Supplements/ph_snp_map.csv"
+sampling_coord_file = "../Supplements/Prusty_DOC_Sup_Tables.xlsx"
+
+#### 2. RESULTS:
+figure_dir = "../Figures/"
+LD_out_file = "../Data/Genotype/LD/"
+
+## 2.1 Non-HSR data
+# 2.1.1 BLUP and BLUE computation
+BLUP_variance_components_path = "../Data/Generated/Heritability/variance_components.csv"
+BLUP_path = "../Data/Generated/PhenotypeProcessing/BLUPs.csv"
+BLUP_normalized_path = "../Data/Generated/PhenotypeProcessing/BLUPs_normalized.csv"
+BLUE_variance_components_path = "../Data/Generated/Heritability/BLUE_variance_components.csv"
+BLUE_path = "../Data/Generated/PhenotypeProcessing/BLUEs.csv"
+BLUE_normalized_path = "../Data/Generated/PhenotypeProcessing/BLUEs_normalized.csv"
+phenotype_nonHSR_long_file = "../Supplements/Merged_file_Tier1_long.csv"
+
+# 2.1.2 heritability estimation
+nonHSR_h2_path = "../Data/Generated/Heritability/nonHSR_h2.csv"
+
+# 2.1.3 boxcox normalization
+box_cox_parameter_file = "../Data/Generated/PhenotypeProcessing/box_cox_parameters.csv"
+BLUE_bc_parameter_file = "../Data/Generated/PhenotypeProcessing/BLUE_bc_parameters.csv"
+
+## 2.2 HSR data
+# 2.2.1 BLUP and BLUE computation
+HSR_BLUP_variance_components_path = "../Data/Generated/Heritability/HSR_variance_components.csv"
+HSR_BLUP_path = "../Data/Generated/PhenotypeProcessing/HSR_BLUPs.csv"
+HSR_BLUP_normalized_path = "../Data/Generated/PhenotypeProcessing/HSR_BLUPs_normalized.csv"
+HSR_BLUE_variance_components_path = "../Data/Generated/Heritability/BLUE_HSR_variance_components.csv"
+HSR_BLUE_path = "../Data/Generated/PhenotypeProcessing/HSR_BLUEs.csv"
+HSR_BLUE_normalized_path = "../Data/Generated/PhenotypeProcessing/HSR_BLUEs_normalized.csv"
+phenotype_HSR_long_file = "../Supplements/HSR_Merged_file_Tier1_long.csv"
+
+# 2.2.2 heritability estimation
+HSR_h2_path = "../Data/Generated/Heritability/HSR_h2.csv"
+
+# 2.2.3 boxcox normalization
+HSR_box_cox_parameter_file = "../Data/Generated/PhenotypeProcessing/HSR_box_cox_parameters.csv"
+HSR_BLUE_bc_parameter_file = "../Data/Generated/PhenotypeProcessing/HSR_BLUE_bc_parameters.csv"
+
+### 2.3 Genotype
+geno_remap_file = "../Data/Genotype/B1K_SNP_remap.csv"
+
+### 2.4 Genomic prediction
+# Static cross-validation order for parallel computing
+GP_CV_matrix_file = "../Supplements/GP_CV_mat2.csv" 
+
+# Selected sets of testing proportion to ensure GP model consistency 
+GP_test_set_file = "../Supplements/GP_testSets.csv"
+
+# Specifies GP model scenario (Trait|Timepoint|number of significant SNP|ID of significant snp|)
+GP_valid_scenarios_file = "../Supplements/GP_valid_modelScenarios.csv"
 
 ## ---------------------------
 source("simpleM.R")
