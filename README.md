@@ -15,7 +15,11 @@ GitHub (i.e. Genotyping & Phenotyping data).
 #### /1. Main results
 This directory contains eight numbered scripts pertaining to different sections 
 of the publication. These reproduce the main findings of the work, but might be
-supported by supplementary scripts in other directories.
+supported by supplementary scripts in other directories. <br>
+<br>
+These notebooks can be run in sequence. The following directories should be consulted 
+for specific analyses and provide code to parallelize intensive computations. 
+
 
 
 #### /2. Phenotype processing
