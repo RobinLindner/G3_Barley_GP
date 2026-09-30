@@ -5,7 +5,7 @@ for "Genetic architecture of temporal traits improves predictability of growth- 
 
 ## Folder structure:
 
-###/Code
+### /Code
 This directory contains all R scripts necessary to replicate the results from the publication.
 
 Importantly, **"0_utils.R"** acts as a dictionary for file paths, in select cases 
@@ -30,7 +30,7 @@ HPC_GWAS_exec.sh: Perform phenome-wide GWAS, in 1400+ scenarios in parallel on S
 HPC_ESA.R: Extraction of Significant Associations; Parse the resulting GWAS files 
 and extract significant marker trait associations, given a set significance threshold. <br>
 
-####/4. Genomic prediction
+#### /4. Genomic prediction
 This directory contains several scripts owing to the intricate CV scheme. 
 All of the scripts utilize a CV mapping matrix, which splits the data into a 9:1
 partition 100 times. This matrix was generated in script "4_GenomicPrediction.R", 
@@ -49,26 +49,26 @@ MVGP_exec.sh: Parallel execution of MegaLMM_GP.R and MegaLMM_MFE_GP.R for all va
 
 GP_postProcessing.R: Processing of GP results into tables and figures.<br>
 
-####/5. LD decay
+#### /5. LD decay
 LD_decay.R: Estimation and plotting of LD decay for MAF bins. <br>
 
-####/6. Morex V1->V3 genome alignment
+#### /6. Morex V1->V3 genome alignment
 genome_alignment.sh: alignment of full chromosome .fasta files using mummer (nucmer) <br>
 Coord2CSV_cluster.R: transforms a given coordinate file resulting from genome_alignment.sh 
 to a .csv format. <br>
 Coord2CSV_cluster_exec.sh: parallel processing of all chromosomes via Coord2CSV_cluster.R <br>
 SNPMapping.R: Use the fasta alignment to remap SNP to the aligned coordinates in MorexV3, selecting positions with maximal identity. <br>
 
-####/7. Figures
+#### /7. Figures
 The two scripts here were used to produce figures that were not plotted and saved 
 in the main analysis scripts <br>
 
-## Data
+### /Data
 This directory serves to structure the data as proposed in 0_utils.R. Genotyping-, phenotyping, as well as data generated in TASSEL will have to be added manually before scripts listed above can be used.<br>
 <br>
 Alternatively, one can set file paths in 0_utils.R according to their own directory structure.<br>
 
-## Supplements
+## /Supplements
 trait_groups.csv:   linking traits to trait groups. <br>
 ph_snp_map.csv:     linking PH SNPs to IDs used in the main text. <br>
 GPgenotypes.txt:    subset of genotypes used for GP, necessary for parallel execution of MegaLMM. <br>
