@@ -72,7 +72,7 @@ This directory serves to structure the data as proposed in 0_utils.R. Genotyping
 <br>
 Alternatively, one can set file paths in 0_utils.R according to their own directory structure.<br>
 
-## /Supplements
+### /Supplements
 trait_groups.csv:   linking traits to trait groups. <br>
 ph_snp_map.csv:     linking PH SNPs to IDs used in the main text. <br>
 GPgenotypes.txt:    subset of genotypes used for GP, necessary for parallel execution of MegaLMM. <br>
